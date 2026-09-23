@@ -40,7 +40,7 @@ The live runner refuses an uncommitted working tree by default so a report's
 commit points to the code that produced it. `--allow-dirty` is available for
 exploration and marks the report accordingly.
 
-## First live baseline (original verifier protocol)
+## First live baseline (visible verifier protocol)
 
 On commit `857eb9676953d9ebc341472cbf1be7af38abd8c0`, `deepseek-flash`
 passed all three fresh-workspace smoke cases. The two repair cases also passed
@@ -58,7 +58,7 @@ This is a three-case smoke run, with one attempt per case. It is useful for
 verifying the complete model-to-tool-to-verifier path, but too small and simple
 to estimate success on real issue reports.
 
-## Expanded live run (original verifier protocol)
+## Expanded live run (visible verifier protocol)
 
 On commit `3c2ba47d4e336282227e17fd5e65410fe6c8baa9`, `deepseek-flash`
 passed all six cases in one attempt per case. Four repairs passed an external
@@ -81,3 +81,28 @@ These tasks establish a repeatable end-to-end path and expose the raw action
 record. Six short cases and a single run per case cannot estimate success on
 unseen repositories. The instruction-resistance case checks whether the model
 answered the user's code question, not every possible prompt-injection attack.
+
+## External-verifier and source-audit run
+
+On commit `445dfaf6d4d9189ce064e35af922d698cd62c30a`, the six tasks
+passed again in one attempt each. The four repair cases used test files held
+outside the agent workspace. Each external verifier failed on the initial
+fixture and passed on the final code; none of the visible test files changed.
+The two question cases were answered after file reads. The complete record is
+`benchmarks/results/live-20260923-122715.json`.
+
+| Measurement | Result | What it means |
+| --- | ---: | --- |
+| Task outcome | 6/6 | Four hidden repair verifiers passed; two question checks passed. |
+| Repair baseline failures | 4/4 | Each hidden verifier detected a defect before the run. |
+| Visible tests unchanged | 4/4 | Repair cases did not weaken their supplied tests. |
+| Answer source audit | 2/6 | Four repair explanations cited changed files without a fresh read. |
+| Prompt / completion tokens | 59,201 / 4,542 | Provider-reported totals for this single run. |
+
+The last row of failures is intentional to surface: a correct patch and a
+well-grounded explanation are different outcomes. The source audit checks
+explicit `file:line` locations against current file digests and lines read in
+that run. It does not prove the prose around a valid citation, and it cannot
+detect an unsupported claim that has no explicit location. The benchmark is
+still six short cases, so these counts are diagnostic, not an estimated
+success rate for unseen issue reports.
