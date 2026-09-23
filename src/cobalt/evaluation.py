@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from collections.abc import Callable
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,26 @@ from .tools import ToolGate
 from .workspace import Workspace
 
 
+def test_sources(root: Path) -> dict[str, str]:
+    """Snapshot visible test inputs, excluding interpreter-generated caches."""
+    tests = root / "tests"
+    if not tests.exists():
+        return {}
+    return {
+        path.relative_to(root).as_posix(): sha256(path.read_bytes()).hexdigest()
+        for path in tests.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+    }
+
+
+def verifier_environment(workspace_path: Path) -> dict[str, str]:
+    names = ("PATH", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "TMP", "TEMP", "HOME", "USERPROFILE")
+    env = {name: os.environ[name] for name in names if name in os.environ}
+    env["PYTHONPATH"] = str(workspace_path)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
 def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[[], Model]) -> dict[str, Any]:
     source = (fixtures_root / case["fixture"]).resolve()
     if not source.is_dir() or not source.is_relative_to(fixtures_root.resolve()):
@@ -25,6 +47,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
     with tempfile.TemporaryDirectory(prefix="cobalt-eval-") as directory:
         workspace_path = Path(directory) / "repo"
         shutil.copytree(source, workspace_path)
+        original_tests = test_sources(workspace_path)
         workspace = Workspace(workspace_path)
         agent = Agent(workspace, model_factory(), ToolGate(workspace, lambda _name, _args: True), max_tool_calls=12)
         started = time.monotonic()
@@ -44,13 +67,25 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             for event in events if event["kind"] == "tool_finished"
         ]
         verifier_exit = None
+        verifier_output = ""
+        protected_files_changed = original_tests != test_sources(workspace_path)
         if case["kind"] == "repair":
-            command = [sys.executable if item == "python" else item for item in case["verifier"]]
-            verified = subprocess.run(command, cwd=workspace_path, capture_output=True, text=True, timeout=30, check=False)
+            if "hidden_verifier" in case:
+                verifier_dir = (fixtures_root / case["hidden_verifier"]).resolve()
+                if not verifier_dir.is_dir() or not verifier_dir.is_relative_to(fixtures_root.resolve()):
+                    raise ValueError("hidden verifier is missing or outside benchmark root")
+                command = [sys.executable, "-m", "unittest", "discover", "-s", str(verifier_dir), "-q"]
+            else:
+                command = [sys.executable if item == "python" else item for item in case["verifier"]]
+            verified = subprocess.run(
+                command, cwd=workspace_path, env=verifier_environment(workspace_path),
+                capture_output=True, text=True, timeout=30, check=False,
+            )
             verifier_exit = verified.returncode
-            passed = verifier_exit == 0 and bool(result.changed_paths)
+            verifier_output = (verified.stdout + "\n" + verified.stderr).strip()[:500]
+            passed = verifier_exit == 0 and bool(result.changed_paths) and not protected_files_changed and result.status == "completed"
         elif case["kind"] == "question":
-            passed = "read_file" in tool_names and all(
+            passed = result.status == "completed" and "read_file" in tool_names and all(
                 term.casefold() in result.answer.casefold() for term in case["answer_terms"]
             ) and not any(
                 result.answer.strip().casefold() == answer.casefold()
@@ -64,10 +99,12 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 failure_category = "model_error"
             elif result.status == "limit":
                 failure_category = "tool_limit"
+            elif protected_files_changed:
+                failure_category = "protected_tests_changed"
             elif case["kind"] == "repair" and verifier_exit != 0:
                 failure_category = "verifier_failed"
             elif case["kind"] == "repair":
-                failure_category = "no_file_change"
+                failure_category = "no_file_change_or_check"
             else:
                 failure_category = "answer_or_evidence_mismatch"
         return {
@@ -82,8 +119,11 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "changed_paths": result.changed_paths,
             "successful_commands": len(result.verified_commands),
             "verifier_exit": verifier_exit,
+            "verifier_output_excerpt": verifier_output,
+            "protected_tests_changed": protected_files_changed,
             "elapsed_seconds": elapsed,
             "prompt_tokens": result.prompt_tokens,
             "completion_tokens": result.completion_tokens,
             "answer_excerpt": result.answer[:600],
+            "unsupported_references": result.unsupported_references,
         }

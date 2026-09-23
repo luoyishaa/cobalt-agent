@@ -51,3 +51,4 @@ class RunResult:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     session_id: str = ""
+    unsupported_references: list[str] = field(default_factory=list)

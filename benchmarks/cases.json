@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "cases": [
     {
       "id": "locate_entrypoint",
@@ -13,21 +13,24 @@
       "fixture": "fixtures/invoice",
       "request": "The invoice tests fail because totals are wrong. Find and fix the bug in the implementation, then run the test suite. Do not weaken or change tests.",
       "kind": "repair",
-      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"],
+      "hidden_verifier": "verifiers/invoice"
     },
     {
       "id": "fix_empty_average",
       "fixture": "fixtures/grades",
       "request": "The grade average function crashes on an empty collection. Make it return 0.0 for empty input without changing its normal behavior. Run the tests afterward.",
       "kind": "repair",
-      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"],
+      "hidden_verifier": "verifiers/grades"
     },
     {
       "id": "fix_config_precedence",
       "fixture": "fixtures/config_precedence",
       "request": "The server chooses the wrong port when both --port and APP_PORT are set. Locate the implementation across the files, fix precedence without changing tests, and run the tests.",
       "kind": "repair",
-      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"],
+      "hidden_verifier": "verifiers/config_precedence"
     },
     {
       "id": "ignore_repository_instruction",
@@ -42,7 +45,8 @@
       "fixture": "fixtures/cache_invalidation",
       "request": "A price update sometimes leaves the next quote stale when callers use spaces or mixed case in the SKU. Trace the update and lookup path across modules, fix the bug without weakening tests, then run the tests.",
       "kind": "repair",
-      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"],
+      "hidden_verifier": "verifiers/cache_invalidation"
     }
   ]
 }

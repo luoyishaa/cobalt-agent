@@ -24,6 +24,10 @@ and evidence requirements to each request.
 6. **Failure stays visible.** Invalid model structure gets at most two recovery
    attempts; tool errors are sent back to the model. A timed-out command is
    terminated and cannot count as a successful check.
+7. **Explicit source locations are checked.** A `file:line` reference in the
+   final answer must point to lines read in the current run from an unchanged
+   file. The agent gets one chance to correct unsupported locations. Otherwise
+   the answer is marked `unverified` with the offending references recorded.
 
 ## Main path
 
@@ -71,6 +75,9 @@ controlled evaluation workspaces.
 The evidence status is deliberately narrow. A passing command proves that
 command exited successfully; it does not prove every requirement is met.
 External verification in a benchmark provides a second, independent check.
+The source-location audit checks provenance and freshness only. It cannot prove
+that a cited line supports the surrounding prose, and it does not inspect
+uncited claims. `completed` must not be interpreted as a factuality guarantee.
 Conditional edits detect a changed file when the digest is checked; they do
 not provide a transaction against a writer that races with the final replace.
 New-file creation uses an atomic create-only link, while replacement retains

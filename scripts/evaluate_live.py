@@ -16,18 +16,28 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="deepseek-flash")
     parser.add_argument("--case", action="append", help="Only run this case id; may be repeated")
+    parser.add_argument("--allow-dirty", action="store_true", help="Run an exploratory check with uncommitted code")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     data = json.loads((root / "benchmarks" / "cases.json").read_text(encoding="utf-8"))
     cases = [case for case in data["cases"] if not args.case or case["id"] in args.case]
     if not cases:
         parser.error("no matching cases")
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=normal"],
+        cwd=root, capture_output=True, text=True, check=False,
+    )
+    if dirty.returncode != 0:
+        parser.error("cannot read Git working tree status")
+    if dirty.stdout.strip() and not args.allow_dirty:
+        parser.error("commit changes before a reproducible run, or use --allow-dirty for exploration")
     rows = [run_case(case, root / "benchmarks", lambda: DeepSeek(model=args.model)) for case in cases]
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=False)
     report = {
         "at": datetime.now(UTC).isoformat(),
         "model": args.model,
         "commit": commit.stdout.strip() if commit.returncode == 0 else "uncommitted",
+        "working_tree_dirty": bool(dirty.stdout.strip()),
         "case_count": len(rows),
         "passed": sum(row["passed"] for row in rows),
         "pass_rate": sum(row["passed"] for row in rows) / len(rows),

@@ -6,9 +6,9 @@ We report three different claims separately:
    rejection, read-only mode, tool feedback, session resume, and evidence
    labeling. A scripted model makes these checks deterministic.
 2. **Task outcome:** a live model attempts each task in a fresh fixture copy.
-   For repair cases, an external command checks the final repository. For
-   question cases, the evaluator requires a real read and expected answer
-   terms.
+   For repair cases, tests outside the agent's workspace check the final code,
+   and visible tests must remain unchanged. For question cases, the evaluator
+   requires a real read and expected answer terms.
 3. **Process evidence:** each row records the agent's status, tool calls,
    successful commands, elapsed time, and provider-reported token use.
 
@@ -32,6 +32,9 @@ about general coding success. Each live row also records individual tool
 outcomes and a failure category. The answer grader for repository questions
 checks that a file was read and required facts appear; it is a lightweight
 task-specific check, not a general factuality judge.
+The live runner refuses an uncommitted working tree by default so a report's
+commit points to the code that produced it. `--allow-dirty` is available for
+exploration and marks the report accordingly.
 
 ## First live baseline
 

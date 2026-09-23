@@ -91,6 +91,60 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(result.status, "unverified")
             self.assertIn("no repository tool ran", result.answer)
 
+    def test_answer_with_unread_source_location_is_unverified(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "actual.py").write_text("VALUE = 8080\n", encoding="utf-8")
+            workspace = Workspace(root)
+            model = ScriptedModel([
+                ModelTurn("", (ToolCall("read-1", "read_file", {"path": "actual.py"}),)),
+                ModelTurn("The value is 8080 in `missing.py:46`."),
+                ModelTurn("The value is 8080 in `missing.py:46`."),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Find the value")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.unsupported_references, ["missing.py:46"])
+            self.assertIn("not backed by a fresh read", result.answer)
+
+    def test_answer_location_must_be_within_fresh_lines_read_this_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "actual.py"
+            path.write_text("first\nsecond\n", encoding="utf-8")
+            workspace = Workspace(root)
+
+            class ChangingModel:
+                def __init__(self):
+                    self.calls = 0
+
+                def complete(self, messages, tools):
+                    self.calls += 1
+                    if self.calls == 1:
+                        return ModelTurn("", (ToolCall("read-1", "read_file", {"path": "actual.py", "lines": 1}),))
+                    path.write_text("changed\nsecond\n", encoding="utf-8")
+                    return ModelTurn("See actual.py:1 and actual.py:2.")
+
+            result = Agent(workspace, ChangingModel(), ToolGate(workspace, lambda _n, _a: False)).ask("Read it")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.unsupported_references, ["actual.py:1", "actual.py:2"])
+
+    def test_answer_audit_gives_one_chance_to_read_a_missing_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "actual.py").write_text("VALUE = 8080\n", encoding="utf-8")
+            (root / "details.py").write_text("NAME = 'port'\n", encoding="utf-8")
+            workspace = Workspace(root)
+            model = ScriptedModel([
+                ModelTurn("", (ToolCall("read-1", "read_file", {"path": "actual.py"}),)),
+                ModelTurn("See actual.py:1 and details.py:1."),
+                ModelTurn("", (ToolCall("read-2", "read_file", {"path": "details.py"}),)),
+                ModelTurn("See actual.py:1 and details.py:1."),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Find the port")
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(result.unsupported_references, [])
+            self.assertIn("not read in this request", model.seen[2][0]["content"])
+
     def test_read_only_mode_hides_and_denies_write_tools(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
