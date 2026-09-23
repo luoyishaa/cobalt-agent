@@ -21,6 +21,9 @@ and evidence requirements to each request.
    or commands.
 5. **Evidence survives a run.** An append-only event file records model turns
    and tool outcomes. A result file holds the outcome and measured usage.
+6. **Failure stays visible.** Invalid model structure gets at most two recovery
+   attempts; tool errors are sent back to the model. A timed-out command is
+   terminated and cannot count as a successful check.
 
 ## Main path
 
@@ -68,3 +71,8 @@ controlled evaluation workspaces.
 The evidence status is deliberately narrow. A passing command proves that
 command exited successfully; it does not prove every requirement is met.
 External verification in a benchmark provides a second, independent check.
+Conditional edits detect a changed file when the digest is checked; they do
+not provide a transaction against a writer that races with the final replace.
+New-file creation uses an atomic create-only link, while replacement retains
+the existing file's permission bits. Session resume continues between requests;
+it does not replay an interrupted command or finish a partially executed run.

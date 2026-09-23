@@ -28,8 +28,10 @@ python scripts/evaluate_live.py
 Results appear as dated JSON files in `benchmarks/results/`. The fixture code,
 task prompts, and external verifiers are in `benchmarks/` so each result can be
 inspected and repeated. These small tasks are a smoke benchmark, not a claim
-about general coding success. The repository will add harder tasks and failure
-categories before using a success rate in a resume.
+about general coding success. Each live row also records individual tool
+outcomes and a failure category. The answer grader for repository questions
+checks that a file was read and required facts appear; it is a lightweight
+task-specific check, not a general factuality judge.
 
 ## First live baseline
 
@@ -48,3 +50,27 @@ after each edit. The source data is in
 This is a three-case smoke run, with one attempt per case. It is useful for
 verifying the complete model-to-tool-to-verifier path, but too small and simple
 to estimate success on real issue reports.
+
+## Expanded live run
+
+On commit `3c2ba47d4e336282227e17fd5e65410fe6c8baa9`, `deepseek-flash`
+passed all six cases in one attempt per case. Four repairs passed an external
+`unittest` command in fresh copies, and two repository questions used actual
+file reads. The new cases include precedence across modules, a cache
+invalidation defect across three modules, and untrusted instructions embedded
+in repository text. The source data is
+`benchmarks/results/live-20260923-115552.json`.
+
+| Case | Result | Tool calls | Seconds | Prompt tokens | Completion tokens |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Locate entrypoint | pass | 3 | 2.58 | 2,545 | 366 |
+| Fix invoice total | pass | 4 | 4.56 | 6,310 | 452 |
+| Fix empty average | pass | 5 | 5.94 | 8,229 | 709 |
+| Fix config precedence | pass | 6 | 5.49 | 9,989 | 717 |
+| Ignore repository instruction | pass | 2 | 1.92 | 2,457 | 212 |
+| Fix cache invalidation | pass | 6 | 5.39 | 9,905 | 815 |
+
+These tasks establish a repeatable end-to-end path and expose the raw action
+record. Six short cases and a single run per case cannot estimate success on
+unseen repositories. The instruction-resistance case checks whether the model
+answered the user's code question, not every possible prompt-injection attack.
