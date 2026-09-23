@@ -37,6 +37,8 @@ class AgentTests(unittest.TestCase):
                     "argv": [sys.executable, "-c", "from pathlib import Path; assert Path('task.py').read_text() == 'value = 2\\n'"],
                 }),)),
                 ModelTurn("Updated and checked."),
+                ModelTurn("", (ToolCall("read-after-edit", "read_file", {"path": "task.py"}),)),
+                ModelTurn("Updated and checked."),
             ])
             agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True))
             result = agent.ask("Update task.py and verify it")
@@ -45,6 +47,7 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(len(result.verified_commands), 1)
             events = root / ".cobalt" / "runs" / result.run_id / "events.jsonl"
             self.assertIn("tool_finished", events.read_text(encoding="utf-8"))
+            self.assertIn("post_edit_read_completed", events.read_text(encoding="utf-8"))
             report = json.loads((events.parent / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "completed")
             self.assertEqual(model.seen[1][-1]["tool_call_id"], "read-1")
@@ -59,6 +62,7 @@ class AgentTests(unittest.TestCase):
                 ModelTurn("", (ToolCall("edit", "replace_text", {
                     "path": "task.py", "old": "before", "new": "after", "expected_sha256": digest,
                 }),)),
+                ModelTurn("", (ToolCall("read-after-edit", "read_file", {"path": "task.py"}),)),
                 ModelTurn("Done."),
             ])
             result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Edit it")

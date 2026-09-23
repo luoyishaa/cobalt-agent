@@ -26,6 +26,7 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
 - File edits require the digest from a prior read, preventing stale overwrites.
 - Commands receive an argument array and run without a shell.
 - The answer is marked unverified if an edit has no later successful check.
+- After an edit, the agent must reread the changed file before its final answer.
 - Every run has an event log and a compact result under `.cobalt/runs/`.
 - Explicit `file:line` references are checked against fresh reads. A completed
   run records actions; it does not certify every sentence in the answer.

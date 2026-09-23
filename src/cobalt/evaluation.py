@@ -148,4 +148,5 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "unsupported_references": result.unsupported_references,
             "answer_sources_supported": not result.unsupported_references,
             "answer_retries": sum(event["kind"] == "answer_rejected" for event in events),
+            "post_edit_reads_complete": not result.unrefreshed_paths,
         }

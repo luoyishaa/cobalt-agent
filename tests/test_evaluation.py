@@ -46,6 +46,7 @@ class WeakeningModel:
                 "argv": [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
             }),)),
             ModelTurn("Done."),
+            ModelTurn("Done."),
         ])
 
     def complete(self, messages, tools):

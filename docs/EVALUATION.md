@@ -11,7 +11,7 @@ We report three different claims separately:
    the agent starts. For question cases, the evaluator requires a real read and
    expected answer terms.
 3. **Process evidence:** each row records the agent's status, tool calls,
-   successful commands, answer-source audit, elapsed time, and
+   successful commands, post-edit reads, answer-source audit, elapsed time, and
    provider-reported token use. A repair may pass its external verifier while
    its explanation is `unverified` because it cites code that changed after
    the last read. Both facts are reported separately.
