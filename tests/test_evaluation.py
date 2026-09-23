@@ -52,6 +52,26 @@ class WeakeningModel:
         return next(self.turns)
 
 
+class StaleCitationModel:
+    def __init__(self, code_digest):
+        self.turns = iter([
+            ModelTurn("", (ToolCall("read", "read_file", {"path": "grades.py"}),)),
+            ModelTurn("", (ToolCall("edit", "replace_text", {
+                "path": "grades.py", "old": "    return sum(scores) / len(scores)",
+                "new": "    return sum(scores) / len(scores) if scores else 0.0",
+                "expected_sha256": code_digest,
+            }),)),
+            ModelTurn("", (ToolCall("check", "run_command", {
+                "argv": [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
+            }),)),
+            ModelTurn("Fixed it in grades.py:1."),
+            ModelTurn("Fixed it in grades.py:1."),
+        ])
+
+    def complete(self, messages, tools):
+        return next(self.turns)
+
+
 class EvaluationTests(unittest.TestCase):
     def test_external_verifier_rejects_a_confident_but_unchanged_answer(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
@@ -65,6 +85,17 @@ class EvaluationTests(unittest.TestCase):
         self.assertFalse(row["passed"])
         self.assertEqual(row["failure_category"], "verifier_failed")
         self.assertEqual(row["run_status"], "unverified")
+
+    def test_repair_case_must_fail_before_agent_starts(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        with self.assertRaisesRegex(ValueError, "already passes"):
+            run_case({
+                "id": "broken_baseline",
+                "fixture": "fixtures/grades",
+                "request": "Fix the bug",
+                "kind": "repair",
+                "verifier": ["python", "-c", "print('always passes')"],
+            }, fixtures, AnswerOnlyModel)
 
     def test_question_requires_real_read_even_if_words_match(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
@@ -105,3 +136,18 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(row["verifier_exit"], 0)
         self.assertFalse(row["passed"])
         self.assertEqual(row["failure_category"], "protected_tests_changed")
+
+    def test_correct_repair_and_stale_answer_are_reported_separately(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        source = fixtures / "fixtures" / "grades" / "grades.py"
+        row = run_case({
+            "id": "stale_answer",
+            "fixture": "fixtures/grades",
+            "request": "Fix the bug",
+            "kind": "repair",
+            "hidden_verifier": "verifiers/grades",
+        }, fixtures, lambda: StaleCitationModel(digest_bytes(source.read_bytes())))
+        self.assertTrue(row["passed"])
+        self.assertEqual(row["run_status"], "unverified")
+        self.assertFalse(row["answer_sources_supported"])
+        self.assertEqual(row["answer_retries"], 1)

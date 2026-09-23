@@ -41,6 +41,7 @@ def main() -> None:
         "case_count": len(rows),
         "passed": sum(row["passed"] for row in rows),
         "pass_rate": sum(row["passed"] for row in rows) / len(rows),
+        "answer_sources_supported": sum(row["answer_sources_supported"] for row in rows),
         "total_prompt_tokens": sum(row["prompt_tokens"] for row in rows),
         "total_completion_tokens": sum(row["completion_tokens"] for row in rows),
         "failure_categories": {

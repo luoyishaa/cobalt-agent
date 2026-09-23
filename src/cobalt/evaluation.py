@@ -47,6 +47,25 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
     with tempfile.TemporaryDirectory(prefix="cobalt-eval-") as directory:
         workspace_path = Path(directory) / "repo"
         shutil.copytree(source, workspace_path)
+        command: list[str] | None = None
+        baseline_exit = None
+        if case["kind"] == "repair":
+            if "hidden_verifier" in case:
+                verifier_dir = (fixtures_root / case["hidden_verifier"]).resolve()
+                if not verifier_dir.is_dir() or not verifier_dir.is_relative_to(fixtures_root.resolve()):
+                    raise ValueError("hidden verifier is missing or outside benchmark root")
+                if not any(verifier_dir.glob("test_*.py")):
+                    raise ValueError("hidden verifier has no test files")
+                command = [sys.executable, "-m", "unittest", "discover", "-s", str(verifier_dir), "-q"]
+            else:
+                command = [sys.executable if item == "python" else item for item in case["verifier"]]
+            baseline = subprocess.run(
+                command, cwd=workspace_path, env=verifier_environment(workspace_path),
+                capture_output=True, text=True, timeout=30, check=False,
+            )
+            baseline_exit = baseline.returncode
+            if baseline_exit == 0:
+                raise ValueError("repair case already passes its external verifier before the agent runs")
         original_tests = test_sources(workspace_path)
         workspace = Workspace(workspace_path)
         agent = Agent(workspace, model_factory(), ToolGate(workspace, lambda _name, _args: True), max_tool_calls=12)
@@ -70,20 +89,18 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         verifier_output = ""
         protected_files_changed = original_tests != test_sources(workspace_path)
         if case["kind"] == "repair":
-            if "hidden_verifier" in case:
-                verifier_dir = (fixtures_root / case["hidden_verifier"]).resolve()
-                if not verifier_dir.is_dir() or not verifier_dir.is_relative_to(fixtures_root.resolve()):
-                    raise ValueError("hidden verifier is missing or outside benchmark root")
-                command = [sys.executable, "-m", "unittest", "discover", "-s", str(verifier_dir), "-q"]
-            else:
-                command = [sys.executable if item == "python" else item for item in case["verifier"]]
+            assert command is not None
             verified = subprocess.run(
                 command, cwd=workspace_path, env=verifier_environment(workspace_path),
                 capture_output=True, text=True, timeout=30, check=False,
             )
             verifier_exit = verified.returncode
             verifier_output = (verified.stdout + "\n" + verified.stderr).strip()[:500]
-            passed = verifier_exit == 0 and bool(result.changed_paths) and not protected_files_changed and result.status == "completed"
+            passed = (
+                verifier_exit == 0 and bool(result.changed_paths)
+                and bool(result.verified_commands) and not protected_files_changed
+                and result.status in {"completed", "unverified"}
+            )
         elif case["kind"] == "question":
             passed = result.status == "completed" and "read_file" in tool_names and all(
                 term.casefold() in result.answer.casefold() for term in case["answer_terms"]
@@ -103,8 +120,10 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 failure_category = "protected_tests_changed"
             elif case["kind"] == "repair" and verifier_exit != 0:
                 failure_category = "verifier_failed"
+            elif case["kind"] == "repair" and not result.changed_paths:
+                failure_category = "no_file_change"
             elif case["kind"] == "repair":
-                failure_category = "no_file_change_or_check"
+                failure_category = "no_successful_check"
             else:
                 failure_category = "answer_or_evidence_mismatch"
         return {
@@ -119,6 +138,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "changed_paths": result.changed_paths,
             "successful_commands": len(result.verified_commands),
             "verifier_exit": verifier_exit,
+            "baseline_verifier_exit": baseline_exit,
             "verifier_output_excerpt": verifier_output,
             "protected_tests_changed": protected_files_changed,
             "elapsed_seconds": elapsed,
@@ -126,4 +146,6 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "completion_tokens": result.completion_tokens,
             "answer_excerpt": result.answer[:600],
             "unsupported_references": result.unsupported_references,
+            "answer_sources_supported": not result.unsupported_references,
+            "answer_retries": sum(event["kind"] == "answer_rejected" for event in events),
         }

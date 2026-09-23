@@ -7,10 +7,14 @@ We report three different claims separately:
    labeling. A scripted model makes these checks deterministic.
 2. **Task outcome:** a live model attempts each task in a fresh fixture copy.
    For repair cases, tests outside the agent's workspace check the final code,
-   and visible tests must remain unchanged. For question cases, the evaluator
-   requires a real read and expected answer terms.
+   and visible tests must remain unchanged. The external tests must fail before
+   the agent starts. For question cases, the evaluator requires a real read and
+   expected answer terms.
 3. **Process evidence:** each row records the agent's status, tool calls,
-   successful commands, elapsed time, and provider-reported token use.
+   successful commands, answer-source audit, elapsed time, and
+   provider-reported token use. A repair may pass its external verifier while
+   its explanation is `unverified` because it cites code that changed after
+   the last read. Both facts are reported separately.
 
 Run the local checks:
 
@@ -36,7 +40,7 @@ The live runner refuses an uncommitted working tree by default so a report's
 commit points to the code that produced it. `--allow-dirty` is available for
 exploration and marks the report accordingly.
 
-## First live baseline
+## First live baseline (original verifier protocol)
 
 On commit `857eb9676953d9ebc341472cbf1be7af38abd8c0`, `deepseek-flash`
 passed all three fresh-workspace smoke cases. The two repair cases also passed
@@ -54,7 +58,7 @@ This is a three-case smoke run, with one attempt per case. It is useful for
 verifying the complete model-to-tool-to-verifier path, but too small and simple
 to estimate success on real issue reports.
 
-## Expanded live run
+## Expanded live run (original verifier protocol)
 
 On commit `3c2ba47d4e336282227e17fd5e65410fe6c8baa9`, `deepseek-flash`
 passed all six cases in one attempt per case. Four repairs passed an external
