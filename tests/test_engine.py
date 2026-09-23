@@ -99,3 +99,10 @@ class AgentTests(unittest.TestCase):
             outcome = gate.execute("create_file", {"path": "new.py", "content": "pass"})
             self.assertEqual(outcome.status, "denied")
             self.assertFalse((root / "new.py").exists())
+
+    def test_tool_gate_rejects_unknown_and_wrong_type_arguments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gate = ToolGate(Workspace(Path(directory)), lambda _n, _a: True)
+            self.assertEqual(gate.execute("read_file", {"path": "x", "surprise": 1}).status, "error")
+            self.assertEqual(gate.execute("run_command", {"argv": "python -V"}).status, "error")
+            self.assertEqual(gate.execute("create_file", {"path": "x"}).status, "error")
