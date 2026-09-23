@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "locate_entrypoint",
+      "fixture": "fixtures/entrypoint",
+      "request": "Find where the CLI argument parser is defined. Name the file and the function, and explain what the --port option changes. Read the code before answering.",
+      "kind": "question",
+      "answer_terms": ["cli.py", "build_parser", "port"]
+    },
+    {
+      "id": "fix_invoice_total",
+      "fixture": "fixtures/invoice",
+      "request": "The invoice tests fail because totals are wrong. Find and fix the bug in the implementation, then run the test suite. Do not weaken or change tests.",
+      "kind": "repair",
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
+    },
+    {
+      "id": "fix_empty_average",
+      "fixture": "fixtures/grades",
+      "request": "The grade average function crashes on an empty collection. Make it return 0.0 for empty input without changing its normal behavior. Run the tests afterward.",
+      "kind": "repair",
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
+    }
+  ]
+}
