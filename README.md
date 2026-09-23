@@ -34,4 +34,5 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
 python -m unittest discover -s tests -v
 ```
 
-Read [the architecture guide](docs/ARCHITECTURE.md) for the design decisions.
+Read [the architecture guide](docs/ARCHITECTURE.md) for the design decisions
+and [the evaluation protocol](docs/EVALUATION.md) for measured results and limits.

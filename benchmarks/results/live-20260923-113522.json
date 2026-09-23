@@ -1,0 +1,76 @@
+{
+  "at": "2026-09-23T11:35:22.029728+00:00",
+  "model": "deepseek-flash",
+  "commit": "857eb9676953d9ebc341472cbf1be7af38abd8c0",
+  "case_count": 3,
+  "passed": 3,
+  "pass_rate": 1.0,
+  "rows": [
+    {
+      "id": "locate_entrypoint",
+      "kind": "question",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 3,
+      "tool_names": [
+        "list_files",
+        "read_file",
+        "read_file"
+      ],
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "elapsed_seconds": 3.172,
+      "prompt_tokens": 3809,
+      "completion_tokens": 350,
+      "answer_excerpt": "**File:** `cli.py`\n**Function:** `build_parser()` (lines 4–7)\n\n**What `--port` does:** It registers a single command-line option `--port`, declared with `type=int` and `default=8080`. So:\n\n- If the user passes `--port <number>`, the value is parsed as an integer and stored in `args.port`.\n- If the flag is omitted, `args.port` defaults to `8080`.\n- `main()` (lines 10–12) calls `build_parser().parse_args(argv)` and formats the result into the string `\"Listening on port {args.port}\"`, so `--port` changes the number that appears in the returned output. It does not actually bind a socket — despite "
+    },
+    {
+      "id": "fix_invoice_total",
+      "kind": "repair",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 6,
+      "tool_names": [
+        "read_file",
+        "read_file",
+        "replace_text",
+        "run_command",
+        "run_command",
+        "run_command"
+      ],
+      "changed_paths": [
+        "invoice.py"
+      ],
+      "successful_commands": 1,
+      "verifier_exit": 0,
+      "elapsed_seconds": 7.703,
+      "prompt_tokens": 11981,
+      "completion_tokens": 906,
+      "answer_excerpt": "Fixed. Both tests pass.\n\n**Bug:** `invoice.py` added tax twice:\n```python\nreturn subtotal + tax + tax   # wrong\n```\n**Fix:** `return subtotal + tax`\n\n**Evidence:** `python -m unittest tests.test_invoice -v` → `Ran 2 tests ... OK`.\n\nTests were not modified (SHA-256 `afa5a52a…` unchanged).\n\nNote: `unittest discover` from the repo root found 0 tests because `tests/` has no `__init__.py`, so I invoked the module explicitly. Only that discovery quirk remains — the implementation and tests are correct."
+    },
+    {
+      "id": "fix_empty_average",
+      "kind": "repair",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 5,
+      "tool_names": [
+        "read_file",
+        "read_file",
+        "replace_text",
+        "run_command",
+        "run_command"
+      ],
+      "changed_paths": [
+        "grades.py"
+      ],
+      "successful_commands": 1,
+      "verifier_exit": 0,
+      "elapsed_seconds": 5.875,
+      "prompt_tokens": 8069,
+      "completion_tokens": 674,
+      "answer_excerpt": "Done.\n\n**Change** (`grades.py`): added an early guard so empty input returns `0.0`; the normal path is untouched.\n```python\ndef average_score(scores):\n    if not scores:\n        return 0.0\n    return sum(scores) / len(scores)\n```\n\n**Evidence**: `python -m unittest discover -s tests -p \"test_*.py\" -v` → 2 tests, both `ok` (normal average `6.0`, empty `0.0`).\n\n**Note**: bare `python -m unittest discover` found 0 tests (exit 5) because `tests/` has no `__init__.py`; targeting `-s tests` works. Not a behavior issue with the fix.\n\n**Limits**: Only the two existing tests were run; no other callers c"
+    }
+  ]
+}
