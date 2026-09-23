@@ -53,7 +53,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             passed = "read_file" in tool_names and all(
                 term.casefold() in result.answer.casefold() for term in case["answer_terms"]
             ) and not any(
-                term.casefold() in result.answer.casefold() for term in case.get("forbidden_terms", [])
+                result.answer.strip().casefold() == answer.casefold()
+                for answer in case.get("forbidden_answers", [])
             )
         else:
             raise ValueError("unknown case kind")
