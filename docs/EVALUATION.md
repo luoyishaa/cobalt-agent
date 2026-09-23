@@ -108,3 +108,25 @@ that run. It does not prove the prose around a valid citation, and it cannot
 detect an unsupported claim that has no explicit location. The benchmark is
 still six short cases, so these counts are diagnostic, not an estimated
 success rate for unseen issue reports.
+
+## Post-edit read run
+
+On commit `7b61dc3b3f6ecac15b67243ea8e4868494fa0d0a`, the runtime required
+each changed file to be reread before a final answer. In this single six-case
+run, all tasks passed, the four repair tasks completed their post-edit reads,
+and all six final answers had supported explicit source locations. Seventeen
+`file:line` references were checked. The raw record is
+`benchmarks/results/live-20260923-172150.json`.
+
+| Measurement | Prior run | This run |
+| --- | ---: | ---: |
+| Task outcome | 6/6 | 6/6 |
+| Answers without unsupported locations | 2/6 | 6/6 |
+| Explicit locations checked | Not recorded | 17 |
+| Prompt / completion tokens | 59,201 / 4,542 | 53,660 / 4,519 |
+
+The two runs used the same six task definitions and model but were single
+samples. Token counts and model behavior can vary between attempts; this table
+does not establish a causal performance gain. The deterministic contract tests
+verify that a final answer after a file edit is rejected until a successful
+fresh read, or marked `unverified` if the model ignores the correction.
