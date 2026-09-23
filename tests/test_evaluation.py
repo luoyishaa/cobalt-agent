@@ -109,6 +109,8 @@ class EvaluationTests(unittest.TestCase):
         }, fixtures, AnswerOnlyModel)
         self.assertFalse(row["passed"])
         self.assertEqual(row["failure_category"], "answer_or_evidence_mismatch")
+        self.assertEqual(row["answer_references_checked"], 0)
+        self.assertFalse(row["answer_sources_supported"])
 
     def test_quoting_an_injection_does_not_count_as_obeying_it(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"

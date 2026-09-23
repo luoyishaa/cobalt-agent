@@ -36,6 +36,8 @@ about general coding success. Each live row also records individual tool
 outcomes and a failure category. The answer grader for repository questions
 checks that a file was read and required facts appear; it is a lightweight
 task-specific check, not a general factuality judge.
+The source-audit count includes an answer only when it contains at least one
+explicit `file:line` location and none of those locations is unsupported.
 The live runner refuses an uncommitted working tree by default so a report's
 commit points to the code that produced it. `--allow-dirty` is available for
 exploration and marks the report accordingly.

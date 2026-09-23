@@ -75,6 +75,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         event_path = workspace_path / ".cobalt" / "runs" / result.run_id / "events.jsonl"
         events = [json.loads(line) for line in event_path.read_text(encoding="utf-8").splitlines()]
         tool_names = [event["name"] for event in events if event["kind"] == "tool_finished"]
+        audits = [event for event in events if event["kind"] == "answer_audited"]
+        checked_references = audits[-1]["references"] if audits else []
         steps = [
             {
                 "name": event["name"],
@@ -146,7 +148,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "completion_tokens": result.completion_tokens,
             "answer_excerpt": result.answer[:600],
             "unsupported_references": result.unsupported_references,
-            "answer_sources_supported": not result.unsupported_references,
+            "answer_references_checked": len(checked_references),
+            "answer_sources_supported": bool(checked_references) and not result.unsupported_references,
             "answer_retries": sum(event["kind"] == "answer_rejected" for event in events),
             "post_edit_reads_complete": not result.unrefreshed_paths,
         }
