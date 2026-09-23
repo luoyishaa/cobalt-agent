@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
+import signal
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -51,6 +54,12 @@ class Workspace:
 
     def _rel(self, path: Path) -> str:
         return path.relative_to(self.root).as_posix()
+
+    def file_digest(self, relative: str) -> str:
+        path = self._path(relative, must_exist=True)
+        if not path.is_file() or path.stat().st_size > MAX_READ_BYTES:
+            raise ValueError("observed file is unavailable or too large")
+        return digest_bytes(path.read_bytes())
 
     def overview(self) -> str:
         names = self.list_files(".", max_entries=60).message
@@ -153,9 +162,15 @@ class Workspace:
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
-            if create_only and path.exists():
-                raise ValueError("file appeared while creating it")
-            os.replace(name, path)
+            if create_only:
+                # A hard link fails atomically if another writer created the name.
+                try:
+                    os.link(name, path)
+                except FileExistsError as exc:
+                    raise ValueError("file appeared while creating it") from exc
+            else:
+                os.chmod(name, stat.S_IMODE(path.stat().st_mode))
+                os.replace(name, path)
         finally:
             if os.path.exists(name):
                 os.unlink(name)
@@ -165,15 +180,52 @@ class Workspace:
             raise ValueError("argv must be a non-empty list of strings")
         if not 1 <= timeout <= 120:
             raise ValueError("timeout must be 1..120 seconds")
+        executable = shutil.which(argv[0])
+        if os.name == "nt" and executable and Path(executable).suffix.lower() in {".bat", ".cmd"}:
+            raise ValueError("batch files are not supported by the no-shell command tool")
         env_names = ("PATH", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "TMP", "TEMP", "HOME", "USERPROFILE")
         env = {name: os.environ[name] for name in env_names if name in os.environ}
-        try:
-            result = subprocess.run(
-                argv, cwd=self.root, env=env, capture_output=True, text=True,
-                encoding="utf-8", errors="replace", timeout=timeout, check=False,
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        # Temporary files bound memory use even when a command prints indefinitely.
+        with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+            proc = subprocess.Popen(
+                argv, cwd=self.root, env=env, stdin=subprocess.DEVNULL,
+                stdout=stdout, stderr=stderr, creationflags=flags,
+                start_new_session=os.name != "nt",
             )
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self._stop_process_tree(proc)
+                return ToolOutcome("error", f"command timed out after {timeout}s")
+            stdout.seek(0)
+            stderr.seek(0)
+            combined = stdout.read(MAX_OUTPUT_CHARS + 1) + b"\n" + stderr.read(MAX_OUTPUT_CHARS + 1)
+            output = combined[:MAX_OUTPUT_CHARS].decode("utf-8", errors="replace").strip()
+            if len(combined) > MAX_OUTPUT_CHARS:
+                output += "\n[output truncated]"
+            message = f"exit_code: {proc.returncode}\n{output or '(no output)'}"
+            return ToolOutcome("ok" if proc.returncode == 0 else "error", message, verified=proc.returncode == 0)
+
+    @staticmethod
+    def _stop_process_tree(proc: subprocess.Popen) -> None:
+        if proc.poll() is not None:
+            return
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=5, check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                proc.kill()
+        else:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        try:
+            proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            return ToolOutcome("error", f"command timed out after {timeout}s")
-        output = (result.stdout + "\n" + result.stderr).strip()[:MAX_OUTPUT_CHARS]
-        message = f"exit_code: {result.returncode}\n{output or '(no output)'}"
-        return ToolOutcome("ok" if result.returncode == 0 else "error", message, verified=result.returncode == 0)
+            proc.kill()

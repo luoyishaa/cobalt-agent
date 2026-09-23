@@ -6,6 +6,7 @@ from pathlib import Path
 
 from cobalt.domain import ModelTurn, ToolCall
 from cobalt.engine import Agent
+from cobalt.model import ModelOutputError
 from cobalt.tools import ToolGate
 from cobalt.workspace import Workspace
 
@@ -106,3 +107,25 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(gate.execute("read_file", {"path": "x", "surprise": 1}).status, "error")
             self.assertEqual(gate.execute("run_command", {"argv": "python -V"}).status, "error")
             self.assertEqual(gate.execute("create_file", {"path": "x"}).status, "error")
+
+    def test_malformed_model_response_retries_with_a_bounded_hint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+
+            class RecoveringModel:
+                def __init__(self):
+                    self.prompts = []
+
+                def complete(self, messages, tools):
+                    self.prompts.append(messages)
+                    if len(self.prompts) == 1:
+                        raise ModelOutputError("invalid tool JSON")
+                    if len(self.prompts) == 2:
+                        return ModelTurn("", (ToolCall("list-1", "list_files", {}),))
+                    return ModelTurn("The workspace is empty.")
+
+            model = RecoveringModel()
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Inspect the workspace")
+            self.assertEqual(result.status, "completed")
+            self.assertIn("last response contained invalid", model.prompts[1][0]["content"].lower())
+            self.assertNotIn("last response contained invalid", model.prompts[2][0]["content"].lower())

@@ -33,6 +33,16 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         event_path = workspace_path / ".cobalt" / "runs" / result.run_id / "events.jsonl"
         events = [json.loads(line) for line in event_path.read_text(encoding="utf-8").splitlines()]
         tool_names = [event["name"] for event in events if event["kind"] == "tool_finished"]
+        steps = [
+            {
+                "name": event["name"],
+                "status": event["status"],
+                "path": event.get("path"),
+                "changed": event["changed"],
+                "output_excerpt": event.get("output", "")[:300],
+            }
+            for event in events if event["kind"] == "tool_finished"
+        ]
         verifier_exit = None
         if case["kind"] == "repair":
             command = [sys.executable if item == "python" else item for item in case["verifier"]]
@@ -47,6 +57,18 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             )
         else:
             raise ValueError("unknown case kind")
+        failure_category = None
+        if not passed:
+            if result.status == "model_error":
+                failure_category = "model_error"
+            elif result.status == "limit":
+                failure_category = "tool_limit"
+            elif case["kind"] == "repair" and verifier_exit != 0:
+                failure_category = "verifier_failed"
+            elif case["kind"] == "repair":
+                failure_category = "no_file_change"
+            else:
+                failure_category = "answer_or_evidence_mismatch"
         return {
             "id": case["id"],
             "kind": case["kind"],
@@ -54,6 +76,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "run_status": result.status,
             "tool_calls": result.tool_calls,
             "tool_names": tool_names,
+            "steps": steps,
+            "failure_category": failure_category,
             "changed_paths": result.changed_paths,
             "successful_commands": len(result.verified_commands),
             "verifier_exit": verifier_exit,

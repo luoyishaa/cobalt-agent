@@ -3,7 +3,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from cobalt.model import DeepSeek
+from cobalt.model import DeepSeek, ModelOutputError
 
 
 class ModelAdapterTests(unittest.TestCase):
@@ -48,6 +48,6 @@ class ModelAdapterTests(unittest.TestCase):
         }
         with (
             patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(response).encode("utf-8"))),
-            self.assertRaisesRegex(RuntimeError, "invalid structured response"),
+            self.assertRaisesRegex(ModelOutputError, "invalid structured response"),
         ):
             DeepSeek(api_key="test-only").complete([{"role": "user", "content": "x"}], [])

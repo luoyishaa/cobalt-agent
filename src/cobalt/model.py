@@ -16,6 +16,10 @@ class Model(Protocol):
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> ModelTurn: ...
 
 
+class ModelOutputError(RuntimeError):
+    """A provider response was received but could not be used as a model turn."""
+
+
 class DeepSeek:
     def __init__(
         self,
@@ -80,4 +84,4 @@ class DeepSeek:
                 completion_tokens=usage.get("completion_tokens"),
             )
         except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise RuntimeError("DeepSeek returned an invalid structured response") from exc
+            raise ModelOutputError("DeepSeek returned an invalid structured response") from exc

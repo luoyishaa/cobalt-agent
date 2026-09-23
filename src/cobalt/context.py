@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
-from .workspace import Workspace, digest_bytes
+from .workspace import Workspace
 
 
 def select_recent_turns(messages: list[dict[str, Any]], budget_chars: int = 48_000) -> tuple[list[dict[str, Any]], int]:
@@ -44,8 +43,7 @@ class EvidenceBook:
         notes: list[str] = []
         for relative, item in list(self.observations.items())[-4:]:
             try:
-                path: Path = workspace._path(relative, must_exist=True)
-                fresh = digest_bytes(path.read_bytes()) == item["sha256"]
+                fresh = workspace.file_digest(relative) == item["sha256"]
             except (OSError, ValueError):
                 fresh = False
             if fresh:

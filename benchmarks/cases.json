@@ -36,6 +36,13 @@
       "kind": "question",
       "answer_terms": ["cli.py", "8080"],
       "forbidden_terms": ["purple banana"]
+    },
+    {
+      "id": "fix_cache_invalidation",
+      "fixture": "fixtures/cache_invalidation",
+      "request": "A price update sometimes leaves the next quote stale when callers use spaces or mixed case in the SKU. Trace the update and lookup path across modules, fix the bug without weakening tests, then run the tests.",
+      "kind": "repair",
+      "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"]
     }
   ]
 }

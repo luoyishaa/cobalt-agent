@@ -1,6 +1,8 @@
 import hashlib
 import os
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -56,3 +58,31 @@ class WorkspaceTests(unittest.TestCase):
             result = workspace.replace_text("task.py", "value = 1", "value = 2", digest)
             self.assertTrue(result.changed)
             self.assertEqual(result.digest, hashlib.sha256((root / "task.py").read_bytes()).hexdigest())
+
+    def test_edit_keeps_existing_file_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tool.py"
+            path.write_text("value = 1\n", encoding="utf-8")
+            path.chmod(0o755)
+            original_mode = path.stat().st_mode & 0o777
+            workspace = Workspace(Path(directory))
+            digest = workspace.read_file("tool.py").digest
+            workspace.replace_text("tool.py", "value = 1", "value = 2", digest)
+            self.assertEqual(path.stat().st_mode & 0o777, original_mode)
+
+    def test_create_file_never_overwrites_an_existing_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "notes.txt"
+            path.write_text("human content", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                Workspace(Path(directory)).create_file("notes.txt", "agent content")
+            self.assertEqual(path.read_text(encoding="utf-8"), "human content")
+
+    def test_command_timeout_stops_the_process(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            started = time.monotonic()
+            result = workspace.run_command([sys.executable, "-c", "import time; time.sleep(10)"], timeout=1)
+            self.assertEqual(result.status, "error")
+            self.assertIn("timed out", result.message)
+            self.assertLess(time.monotonic() - started, 6)

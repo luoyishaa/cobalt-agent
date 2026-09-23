@@ -9,7 +9,7 @@ from typing import Any
 from .context import EvidenceBook, select_recent_turns
 from .domain import ModelTurn, RunResult
 from .journal import Journal
-from .model import Model
+from .model import Model, ModelOutputError
 from .session import SessionStore
 from .tools import ToolGate
 from .workspace import Workspace
@@ -49,12 +49,14 @@ class Agent:
             self.messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM}]
             self.evidence = EvidenceBook()
 
-    def _model_context(self) -> tuple[list[dict[str, Any]], int]:
+    def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int]:
         selected, dropped = select_recent_turns(self.messages)
         evidence = self.evidence.context(self.workspace)
         selected[0] = {
             "role": "system",
-            "content": SYSTEM + "\n" + self.workspace.overview() + ("\nRecent file evidence:\n" + evidence if evidence else ""),
+            "content": SYSTEM + "\n" + self.workspace.overview()
+            + ("\nRecent file evidence:\n" + evidence if evidence else "")
+            + ("\n" + retry_hint if retry_hint else ""),
         }
         return selected, dropped
 
@@ -74,11 +76,28 @@ class Agent:
         observed_repository = bool(self.evidence.observations and "Fresh observed file" in self.evidence.context(self.workspace))
         prompt_tokens = 0
         completion_tokens = 0
+        malformed_responses = 0
+        retry_hint = ""
         while calls_used < self.max_tool_calls:
             try:
-                prompt_messages, dropped = self._model_context()
+                prompt_messages, dropped = self._model_context(retry_hint)
                 journal.add("context_built", dropped_turns=dropped, characters=len(json.dumps(prompt_messages, ensure_ascii=False)))
                 turn: ModelTurn = self.model.complete(prompt_messages, self.tools.schemas())
+                retry_hint = ""
+            except ModelOutputError as exc:
+                malformed_responses += 1
+                journal.add("model_output_rejected", reason=str(exc), attempt=malformed_responses)
+                if malformed_responses <= 2:
+                    retry_hint = "The last response contained invalid structured tool arguments. Use the provided JSON schemas exactly."
+                    continue
+                result = RunResult(
+                    run_id, f"Model output stayed invalid after retries: {exc}", "model_error", calls_used,
+                    changed_paths, verified_commands, prompt_tokens, completion_tokens,
+                    self.session_id,
+                )
+                journal.finish(result)
+                self._save_session()
+                return result
             except Exception as exc:  # noqa: BLE001 - this is the outer model failure boundary
                 result = RunResult(
                     run_id, f"Model request failed: {exc}", "model_error", calls_used,
