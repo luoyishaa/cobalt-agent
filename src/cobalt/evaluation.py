@@ -111,6 +111,14 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 result.answer.strip().casefold() == answer.casefold()
                 for answer in case.get("forbidden_answers", [])
             )
+        elif case["kind"] == "workflow":
+            completed_commands = [event["args"]["argv"][1:]
+                                  for event in events if event["kind"] == "tool_finished"
+                                  and event["name"] == "run_command" and event["status"] == "ok"]
+            commands_match = all(completed_commands.count(required) == 1
+                                 for required in case["required_commands"])
+            passed = (result.status == "completed" and "read_file" in tool_names and commands_match
+                      and all(term.casefold() in result.answer.casefold() for term in case["answer_terms"]))
         else:
             raise ValueError("unknown case kind")
         failure_category = None
@@ -129,6 +137,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 failure_category = "no_file_change"
             elif case["kind"] == "repair":
                 failure_category = "no_successful_check"
+            elif case["kind"] == "workflow" and not commands_match:
+                failure_category = "workflow_command_mismatch"
             else:
                 failure_category = "answer_or_evidence_mismatch"
         return {

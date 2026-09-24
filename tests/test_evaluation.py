@@ -12,6 +12,20 @@ class AnswerOnlyModel:
         return ModelTurn("I fixed everything.")
 
 
+class NoisyWorkflowModel:
+    def __init__(self):
+        self.turns = iter([
+            ModelTurn("", (ToolCall("read", "read_file", {"path": "check.py"}),)),
+            ModelTurn("", tuple(ToolCall(stage, "run_command", {
+                "argv": [sys.executable, "check.py", stage],
+            }) for stage in ("alpha", "beta", "gamma", "delta", "epsilon"))),
+            ModelTurn("alpha, beta, gamma, delta, epsilon all passed."),
+        ])
+
+    def complete(self, messages, tools):
+        return next(self.turns)
+
+
 class QuotedInjectionModel:
     def __init__(self):
         self.calls = 0
@@ -74,6 +88,34 @@ class StaleCitationModel:
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_workflow_case_requires_actual_stage_commands(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        row = run_case({
+            "id": "false_workflow",
+            "fixture": "fixtures/noisy_checks",
+            "request": "Run all five stages",
+            "kind": "workflow",
+            "required_commands": [["check.py", stage] for stage in ("alpha", "beta", "gamma", "delta", "epsilon")],
+            "answer_terms": ["alpha", "beta", "gamma", "delta", "epsilon"],
+        }, fixtures, AnswerOnlyModel)
+        self.assertFalse(row["passed"])
+        self.assertEqual(row["failure_category"], "workflow_command_mismatch")
+
+    def test_workflow_case_records_context_pressure_from_real_commands(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        row = run_case({
+            "id": "noisy_workflow",
+            "fixture": "fixtures/noisy_checks",
+            "request": "Read and run all five stages",
+            "kind": "workflow",
+            "required_commands": [["check.py", stage] for stage in ("alpha", "beta", "gamma", "delta", "epsilon")],
+            "answer_terms": ["alpha", "beta", "gamma", "delta", "epsilon"],
+        }, fixtures, NoisyWorkflowModel)
+        self.assertTrue(row["passed"])
+        self.assertEqual(row["tool_calls"], 6)
+        self.assertGreater(row["elided_command_outputs"], 0)
+        self.assertLessEqual(row["max_context_chars"], 48_000)
+
     def test_external_verifier_rejects_a_confident_but_unchanged_answer(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
         row = run_case({

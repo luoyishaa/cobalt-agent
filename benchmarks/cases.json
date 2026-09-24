@@ -47,6 +47,17 @@
       "kind": "repair",
       "verifier": ["python", "-m", "unittest", "discover", "-s", "tests", "-q"],
       "hidden_verifier": "verifiers/cache_invalidation"
+    },
+    {
+      "id": "run_noisy_checks",
+      "fixture": "fixtures/noisy_checks",
+      "request": "Read check.py first. Then run `python check.py <stage>` once for each of alpha, beta, gamma, delta, and epsilon. The checks are independent and produce verbose logs. Report the result of each stage using actual exit codes. Do not rerun a stage just to recover an older log.",
+      "kind": "workflow",
+      "required_commands": [
+        ["check.py", "alpha"], ["check.py", "beta"], ["check.py", "gamma"],
+        ["check.py", "delta"], ["check.py", "epsilon"]
+      ],
+      "answer_terms": ["alpha", "beta", "gamma", "delta", "epsilon"]
     }
   ]
 }
