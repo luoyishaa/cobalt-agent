@@ -32,6 +32,8 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
   and requires inspection; it does not run the tool again automatically.
 - Explicit `file:line` references are checked against fresh reads. A completed
   run records actions; it does not certify every sentence in the answer.
+- Session memory stores file locations and digests as navigation hints, not
+  truncated text presented as a summary.
 
 ## Verify
 

@@ -33,12 +33,17 @@ def select_recent_turns(
 
 
 class EvidenceBook:
-    def __init__(self, observations: dict[str, dict[str, str]] | None = None):
+    def __init__(self, observations: dict[str, dict[str, Any]] | None = None):
         self.observations = dict(observations or {})
 
-    def observe(self, path: str, digest: str, excerpt: str) -> None:
+    def observe(self, path: str, digest: str, *, start: int = 1, lines: int = 160) -> None:
+        previous = self.observations.get(path)
+        ranges = list(previous.get("ranges", [])) if previous and previous.get("sha256") == digest else []
+        span = [start, start + lines - 1]
+        if span not in ranges:
+            ranges.append(span)
         self.observations.pop(path, None)
-        self.observations[path] = {"sha256": digest, "excerpt": excerpt[:500]}
+        self.observations[path] = {"sha256": digest, "ranges": ranges[-4:]}
         while len(self.observations) > 12:
             del self.observations[next(iter(self.observations))]
 
@@ -50,7 +55,13 @@ class EvidenceBook:
             except (OSError, ValueError):
                 fresh = False
             if fresh:
-                notes.append(f"Fresh observed file {relative} ({item['sha256']}): {item['excerpt']}")
+                ranges = item.get("ranges", [])
+                locations = ", ".join(f"{start}-{end}" for start, end in ranges)
+                hint = f"; requested lines {locations}" if locations else ""
+                notes.append(
+                    f"Previously read file {relative} (sha256 {item['sha256']}{hint}). "
+                    "This is a location index, not a content summary; read the file again for details."
+                )
             else:
                 notes.append(f"Observed file {relative} changed; read it again before relying on old content.")
         return "\n".join(notes)

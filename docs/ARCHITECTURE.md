@@ -55,8 +55,11 @@ The session file supports continuing a conversation after a new CLI process
 starts. The context selector drops only complete older user turns, so no tool
 reply is separated from its call. Each run records the selected context size,
 dropped turn count, and whether the final request exceeded the character budget.
-The evidence book retains a few file excerpts with digests; changed files are
-labeled stale and must be read again.
+The evidence book retains file digests and requested line ranges as a small
+navigation index. It does not manufacture a summary by taking the beginning of
+a file. Changed files are labeled stale and must be read again; a fresh index
+still requires a new read when details are needed. Older session files with
+excerpt-only observations remain readable as location-only entries.
 
 The runtime saves the user request and the model's tool-call request before a
 tool runs, then saves after each tool reply. If a process stops between a tool

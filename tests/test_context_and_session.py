@@ -43,12 +43,30 @@ class ContextAndSessionTests(unittest.TestCase):
             workspace = Workspace(root)
             read = workspace.read_file("notes.txt")
             book = EvidenceBook()
-            book.observe("notes.txt", read.digest, read.message)
-            self.assertIn("old fact", book.context(workspace))
+            book.observe("notes.txt", read.digest, start=1, lines=1)
+            self.assertIn("requested lines 1-1", book.context(workspace))
+            self.assertNotIn("old fact", book.context(workspace))
             path.write_text("new fact", encoding="utf-8")
             context = book.context(workspace)
             self.assertIn("changed", context)
             self.assertNotIn("old fact", context)
+
+    def test_evidence_index_retains_read_locations_without_fake_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "notes.txt").write_text("private detail\nother detail\n", encoding="utf-8")
+            workspace = Workspace(root)
+            digest = workspace.file_digest("notes.txt")
+            book = EvidenceBook()
+            book.observe("notes.txt", digest, start=1, lines=1)
+            book.observe("notes.txt", digest, start=2, lines=1)
+            hint = book.context(workspace)
+            self.assertIn("1-1, 2-2", hint)
+            self.assertNotIn("private detail", hint)
+            self.assertEqual(len(book.observations["notes.txt"]["ranges"]), 2)
+            legacy = EvidenceBook({"notes.txt": {"sha256": digest, "excerpt": "old truncated text"}})
+            self.assertIn("location index", legacy.context(workspace))
+            self.assertNotIn("old truncated text", legacy.context(workspace))
 
     def test_session_resume_keeps_prior_turn_and_uses_same_id(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -120,7 +138,7 @@ class ContextAndSessionTests(unittest.TestCase):
             store = SessionStore(root)
             session_id = store.new_id()
             store.save(session_id, [{"role": "system", "content": "rules"}], {
-                "fact.txt": {"sha256": read.digest, "excerpt": read.message},
+                "fact.txt": {"sha256": read.digest, "ranges": [[1, 1]]},
             })
             agent = Agent(
                 workspace, ModelSequence([ModelTurn("The fact is in fact.txt.")]),

@@ -219,9 +219,10 @@ class Agent:
                         pending_refresh.add(outcome.path)
                         verified_commands.clear()
                     if call.name == "read_file" and outcome.status == "ok" and outcome.path and outcome.digest:
-                        self.evidence.observe(outcome.path, outcome.digest, outcome.message)
                         start = int(call.arguments.get("start", 1))
-                        read_spans.append(ReadSpan(outcome.path, start, start + int(call.arguments.get("lines", 160)) - 1, outcome.digest))
+                        lines = int(call.arguments.get("lines", 160))
+                        self.evidence.observe(outcome.path, outcome.digest, start=start, lines=lines)
+                        read_spans.append(ReadSpan(outcome.path, start, start + lines - 1, outcome.digest))
                         if outcome.path in pending_refresh:
                             pending_refresh.remove(outcome.path)
                             refresh_retries = 0
