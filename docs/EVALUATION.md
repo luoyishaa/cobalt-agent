@@ -130,3 +130,25 @@ samples. Token counts and model behavior can vary between attempts; this table
 does not establish a causal performance gain. The deterministic contract tests
 verify that a final answer after a file edit is rejected until a successful
 fresh read, or marked `unverified` if the model ignores the correction.
+
+## Context pressure and evidence visibility
+
+The three tests in `tests/test_engine.py` exercise `Agent.ask` with real file
+reads and commands, using a scripted model so the runtime behavior is
+repeatable. Each test first failed against commit `f54e3ae`, then passed after
+its corresponding change. These are runtime contract tests, not DeepSeek task
+success measurements.
+
+| Pressure case | Observed failure before change | Result after change |
+| --- | --- | --- |
+| Six large file reads in one user turn | Next model request was 75,743 characters against a 48,000-character budget. | Request was 39,605 characters; three older read results were marked as omitted in the model view, while all six complete results stayed in the session. |
+| Five large command outputs | The runtime sent another over-budget model request even though command outputs might describe effects that should not be repeated. | The run returned `context_limit` before another model call; the outputs remained in the session. |
+| Citation to an omitted read | `large.txt:1` passed the source audit even though that read result was absent from the last model request. | The citation was marked unsupported, and the final answer stayed `unverified` when the scripted model repeated it. |
+
+The first case preserves tool call/result pairing and records omitted call IDs
+in `context_built`. The second case is an explicit stop, not automatic
+recovery. The third case checks what the model could actually see rather than
+every read that happened earlier in the run. The 48,000-character limit is a
+local heuristic; it does not equal the provider's token limit. A real-model
+evaluation must measure task success, retries, latency, and token use after
+this view transformation.

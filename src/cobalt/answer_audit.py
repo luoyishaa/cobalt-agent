@@ -20,6 +20,7 @@ class ReadSpan:
     start: int
     end: int
     digest: str
+    call_id: str | None = None
 
 
 def audit_source_references(answer: str, reads: list[ReadSpan], workspace: Workspace) -> tuple[list[str], list[str]]:

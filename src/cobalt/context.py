@@ -8,6 +8,7 @@ from typing import Any
 from .workspace import Workspace
 
 DEFAULT_CONTEXT_BUDGET_CHARS = 48_000
+REPEATABLE_READ_TOOLS = {"list_files", "read_file", "search"}
 
 def select_recent_turns(
     messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
@@ -30,6 +31,34 @@ def select_recent_turns(
     chosen.reverse()
     selected = [messages[0], *(message for group in chosen for message in group)]
     return selected, len(groups) - len(chosen)
+
+
+def elide_old_read_results(
+    messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Shrink only the model view of repeatable reads; keep protocol pairs intact."""
+    view = [dict(message) for message in messages]
+    call_names = {
+        call["id"]: call.get("function", {}).get("name")
+        for message in view if message.get("role") == "assistant"
+        for call in message.get("tool_calls") or [] if isinstance(call.get("id"), str)
+    }
+    elided: list[str] = []
+    for message in view:
+        if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
+            break
+        call_id = message.get("tool_call_id")
+        if message.get("role") != "tool" or call_names.get(call_id) not in REPEATABLE_READ_TOOLS:
+            continue
+        marker = (
+            "status: elided\nEarlier read result omitted from this model request to fit the context budget. "
+            "The original is retained in the session. Read the source again if its details matter."
+        )
+        if len(message.get("content", "")) <= len(marker):
+            continue
+        message["content"] = marker
+        elided.append(call_id)
+    return view, elided
 
 
 class EvidenceBook:

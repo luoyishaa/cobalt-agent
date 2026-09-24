@@ -7,7 +7,12 @@ import uuid
 from typing import Any
 
 from .answer_audit import ReadSpan, audit_source_references
-from .context import DEFAULT_CONTEXT_BUDGET_CHARS, EvidenceBook, select_recent_turns
+from .context import (
+    DEFAULT_CONTEXT_BUDGET_CHARS,
+    EvidenceBook,
+    elide_old_read_results,
+    select_recent_turns,
+)
 from .domain import ModelTurn, RunResult
 from .journal import Journal
 from .model import Model, ModelOutputError
@@ -56,7 +61,7 @@ class Agent:
             self.evidence = EvidenceBook()
             self.recovered_calls = []
 
-    def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int]:
+    def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int, list[str]]:
         selected, dropped = select_recent_turns(self.messages)
         evidence = self.evidence.context(self.workspace)
         selected[0] = {
@@ -70,7 +75,8 @@ class Agent:
             )
             + ("\n" + retry_hint if retry_hint else ""),
         }
-        return selected, dropped
+        view, elided = elide_old_read_results(selected)
+        return view, dropped, elided
 
     def _save_session(self) -> None:
         self.sessions.save(self.session_id, self.messages, self.evidence.observations)
@@ -99,13 +105,25 @@ class Agent:
         retry_hint = ""
         while calls_used < self.max_tool_calls:
             try:
-                prompt_messages, dropped = self._model_context(retry_hint)
+                prompt_messages, dropped, elided = self._model_context(retry_hint)
                 context_chars = len(json.dumps(prompt_messages, ensure_ascii=False))
                 journal.add(
                     "context_built", dropped_turns=dropped, characters=context_chars,
                     budget_chars=DEFAULT_CONTEXT_BUDGET_CHARS,
                     over_budget=context_chars > DEFAULT_CONTEXT_BUDGET_CHARS,
+                    elided_read_calls=elided,
                 )
+                if context_chars > DEFAULT_CONTEXT_BUDGET_CHARS:
+                    result = RunResult(
+                        run_id,
+                        "The context budget was exceeded after retaining nonrepeatable tool results. "
+                        "The model was not called. Review the run record and start a new session or reduce the request.",
+                        "context_limit", calls_used, changed_paths, verified_commands,
+                        prompt_tokens, completion_tokens, self.session_id,
+                    )
+                    journal.finish(result)
+                    self._save_session()
+                    return result
                 turn: ModelTurn = self.model.complete(prompt_messages, self.tools.schemas())
                 retry_hint = ""
             except ModelOutputError as exc:
@@ -149,7 +167,16 @@ class Agent:
                     )
                     journal.add("answer_rejected", reason="post_edit_read_required", paths=paths)
                     continue
-                references, unsupported = audit_source_references(answer, read_spans, self.workspace)
+                visible_reads = {
+                    message.get("tool_call_id") for message in prompt_messages
+                    if message.get("role") == "tool"
+                    and not str(message.get("content", "")).startswith("status: elided\n")
+                }
+                references, unsupported = audit_source_references(
+                    answer,
+                    [span for span in read_spans if span.call_id is None or span.call_id in visible_reads],
+                    self.workspace,
+                )
                 journal.add("answer_audited", references=references, unsupported=unsupported)
                 if unsupported and audit_retries < 1 and not pending_refresh:
                     audit_retries += 1
@@ -222,7 +249,7 @@ class Agent:
                         start = int(call.arguments.get("start", 1))
                         lines = int(call.arguments.get("lines", 160))
                         self.evidence.observe(outcome.path, outcome.digest, start=start, lines=lines)
-                        read_spans.append(ReadSpan(outcome.path, start, start + lines - 1, outcome.digest))
+                        read_spans.append(ReadSpan(outcome.path, start, start + lines - 1, outcome.digest, call.call_id))
                         if outcome.path in pending_refresh:
                             pending_refresh.remove(outcome.path)
                             refresh_retries = 0

@@ -61,6 +61,15 @@ a file. Changed files are labeled stale and must be read again; a fresh index
 still requires a new read when details are needed. Older session files with
 excerpt-only observations remain readable as location-only entries.
 
+When the current user turn alone exceeds the character budget, the model view
+may replace older results from repeatable read tools with explicit omission
+markers. The complete results stay in the session, and tool call/result pairs
+remain intact. Final source references count only reads whose contents were
+visible in the last model request. Command outputs and write results are not
+discarded to force a fit; if the request remains too large, the run stops with
+`context_limit` before calling the model. This is a bounded character policy,
+not a provider token count or a semantic compaction system.
+
 The runtime saves the user request and the model's tool-call request before a
 tool runs, then saves after each tool reply. If a process stops between a tool
 request and its reply, resuming the session inserts an `interrupted` reply that

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cobalt.context import DEFAULT_CONTEXT_BUDGET_CHARS
 from cobalt.domain import ModelTurn, ToolCall
 from cobalt.engine import Agent
 from cobalt.model import ModelOutputError
@@ -22,6 +23,77 @@ class ScriptedModel:
 
 
 class AgentTests(unittest.TestCase):
+    def test_many_large_reads_stay_within_model_context_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "large.txt").write_text(
+                "".join(f"{number:04d} " + "x" * 115 + "\n" for number in range(600)),
+                encoding="utf-8",
+            )
+            workspace = Workspace(root)
+            calls = tuple(
+                ToolCall(f"read-{index}", "read_file", {
+                    "path": "large.txt", "start": index * 100 + 1, "lines": 100,
+                })
+                for index in range(6)
+            )
+            model = ScriptedModel([ModelTurn("", calls), ModelTurn("I inspected the file.")])
+            agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False))
+            result = agent.ask("Inspect the full file")
+            self.assertEqual(result.tool_calls, 6)
+            self.assertLessEqual(len(json.dumps(model.seen[1], ensure_ascii=False)), DEFAULT_CONTEXT_BUDGET_CHARS)
+            self.assertEqual(
+                {message["tool_call_id"] for message in model.seen[1] if message["role"] == "tool"},
+                {f"read-{index}" for index in range(6)},
+            )
+            self.assertTrue(any(
+                message["content"].startswith("status: elided")
+                for message in model.seen[1] if message["role"] == "tool"
+            ))
+            stored, _ = agent.sessions.load(agent.session_id)
+            self.assertEqual(
+                sum("x" * 115 in message.get("content", "") for message in stored if message["role"] == "tool"),
+                6,
+            )
+
+    def test_large_nonrepeatable_outputs_stop_before_an_oversized_model_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            calls = tuple(
+                ToolCall(f"command-{index}", "run_command", {
+                    "argv": [sys.executable, "-c", "print('x' * 12000)"],
+                })
+                for index in range(5)
+            )
+            model = ScriptedModel([ModelTurn("", calls), ModelTurn("This should never be requested.")])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Run the checks")
+            self.assertEqual(result.status, "context_limit")
+            self.assertEqual(len(model.seen), 1)
+            self.assertIn("context budget", result.answer)
+
+    def test_elided_read_cannot_support_a_final_source_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "large.txt").write_text(
+                "".join(f"{number:04d} " + "x" * 115 + "\n" for number in range(600)),
+                encoding="utf-8",
+            )
+            workspace = Workspace(root)
+            calls = tuple(
+                ToolCall(f"read-{index}", "read_file", {
+                    "path": "large.txt", "start": index * 100 + 1, "lines": 100,
+                })
+                for index in range(6)
+            )
+            model = ScriptedModel([
+                ModelTurn("", calls),
+                ModelTurn("The answer is in large.txt:1."),
+                ModelTurn("The answer is in large.txt:1."),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Find the first line")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.unsupported_references, ["large.txt:1"])
+
     def test_read_edit_verify_flow_has_report_and_real_command_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

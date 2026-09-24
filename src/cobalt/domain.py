@@ -44,7 +44,7 @@ class ToolOutcome:
 class RunResult:
     run_id: str
     answer: str
-    status: Literal["completed", "unverified", "limit", "model_error"]
+    status: Literal["completed", "unverified", "limit", "context_limit", "model_error"]
     tool_calls: int
     changed_paths: list[str] = field(default_factory=list)
     verified_commands: list[list[str]] = field(default_factory=list)

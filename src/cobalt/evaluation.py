@@ -116,6 +116,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         if not passed:
             if result.status == "model_error":
                 failure_category = "model_error"
+            elif result.status == "context_limit":
+                failure_category = "context_limit"
             elif result.status == "limit":
                 failure_category = "tool_limit"
             elif protected_files_changed:
