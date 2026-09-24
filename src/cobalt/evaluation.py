@@ -112,11 +112,14 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 for answer in case.get("forbidden_answers", [])
             )
         elif case["kind"] == "workflow":
-            completed_commands = [event["args"]["argv"][1:]
-                                  for event in events if event["kind"] == "tool_finished"
-                                  and event["name"] == "run_command" and event["status"] == "ok"]
-            commands_match = all(completed_commands.count(required) == 1
-                                 for required in case["required_commands"])
+            attempted_commands = [event for event in events if event["kind"] == "tool_finished"
+                                  and event["name"] == "run_command"]
+            commands_match = all(
+                len(matches := [event for event in attempted_commands
+                                if event["args"]["argv"][1:] == required]) == 1
+                and matches[0]["status"] == "ok"
+                for required in case["required_commands"]
+            )
             passed = (result.status == "completed" and "read_file" in tool_names and commands_match
                       and all(term.casefold() in result.answer.casefold() for term in case["answer_terms"]))
         else:

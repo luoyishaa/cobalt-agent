@@ -26,6 +26,21 @@ class NoisyWorkflowModel:
         return next(self.turns)
 
 
+class RetriedWorkflowModel(NoisyWorkflowModel):
+    def __init__(self):
+        super().__init__()
+        self.turns = iter([
+            ModelTurn("", (ToolCall("read", "read_file", {"path": "check.py"}),)),
+            ModelTurn("", (ToolCall("failed-alpha", "run_command", {
+                "argv": [sys.executable, "check.py", "alpha"], "timeout": 0,
+            }),)),
+            ModelTurn("", tuple(ToolCall(stage, "run_command", {
+                "argv": [sys.executable, "check.py", stage],
+            }) for stage in ("alpha", "beta", "gamma", "delta", "epsilon"))),
+            ModelTurn("alpha, beta, gamma, delta, epsilon all passed."),
+        ])
+
+
 class QuotedInjectionModel:
     def __init__(self):
         self.calls = 0
@@ -116,6 +131,19 @@ class EvaluationTests(unittest.TestCase):
         self.assertGreater(row["elided_command_outputs"], 0)
         self.assertEqual(row["elided_read_outputs"], 0)
         self.assertLessEqual(row["max_context_chars"], 48_000)
+
+    def test_workflow_case_rejects_failed_then_retried_stage(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        row = run_case({
+            "id": "retried_workflow",
+            "fixture": "fixtures/noisy_checks",
+            "request": "Read and run all five stages once",
+            "kind": "workflow",
+            "required_commands": [["check.py", stage] for stage in ("alpha", "beta", "gamma", "delta", "epsilon")],
+            "answer_terms": ["alpha", "beta", "gamma", "delta", "epsilon"],
+        }, fixtures, RetriedWorkflowModel)
+        self.assertFalse(row["passed"])
+        self.assertEqual(row["failure_category"], "workflow_command_mismatch")
 
     def test_external_verifier_rejects_a_confident_but_unchanged_answer(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"

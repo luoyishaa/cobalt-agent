@@ -180,7 +180,7 @@ approval when it is allowed again.
 
 `run_noisy_checks` makes the model read a checker, then execute five independent
 stages whose logs are long enough to pressure the context budget. The grader
-requires exactly one successful command for each stage and all stage names in
+requires exactly one command attempt with a successful result for each stage and all stage names in
 the answer. It also records how many read and command outputs were omitted in
 the model view. This case probes a protocol path; it is not a general coding
 ability benchmark.
@@ -212,3 +212,11 @@ successful logs. The revised policy removes old verbose command bodies first,
 keeping the short source read visible when that suffices to fit the request.
 This is a retention priority, not a claim that the log preview alone caused
 the change from 2/3 to 4/5; those are small independent samples.
+
+On commit `436832704439e6fdc07ecbad96918712668b6851`, five fresh attempts
+passed **5/5**. Each run used 6–7 tool calls, included 2–3 command-output
+elisions, and kept all file-read outputs visible. The largest model request was
+42,959 characters, below the 48,000-character policy. The complete record is
+`benchmarks/results/live-20260924-082554.json`. These observations support the
+retention change for this workload; five attempts are too few to estimate a
+general success probability or isolate model randomness from the code change.
