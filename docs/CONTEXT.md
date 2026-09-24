@@ -83,3 +83,48 @@ source, independent verifier results, actions, context measurements and usage.
 UTC filenames correspond to September 25 in Asia/Shanghai. Local regression
 after the edit fix ran 75 tests: 74 passed, one Windows symlink-permission test
 was skipped; Ruff passed.
+
+## Archived output in completed turns
+
+When a new user turn starts, the runtime now replaces long archived command
+results from older turns with a bounded marker, even below the context limit.
+The marker retains the original status, exit code, output ID, result hash and
+raw prefix/suffix. The original session and output archive remain unchanged.
+Current-turn results keep the existing budget-triggered policy. Outputs without
+an archive ID are not subject to this early omission.
+
+This uses the conversation boundary to avoid repeatedly sending already-seen
+logs. It does not summarize user instructions or claim to know which log details
+will matter later. The read tool remains necessary when omitted details matter.
+
+On clean commit `4e79940`, `python -m scripts.evaluate_history_outputs --repeat 3`
+compared budget-only omission with early historical omission using DeepSeek
+`deepseek-flash`. Two repairs reuse the earlier multi-turn tasks; two recall
+cases put a fresh random token inside a prior success or failure log. A visible
+original result is accepted without retrieval; otherwise the model must retrieve
+the token. Recall also checks the exact exit code, observed evidence and one
+original execution. The continuation is read-only in both arms.
+
+| Three attempts per case | Budget-only passed | Historical passed | Input tokens before | Input tokens after |
+| --- | ---: | ---: | ---: | ---: |
+| Retain requirement | 3/3 | 3/3 | 93,703 | 52,218 |
+| Revised requirement | 3/3 | 3/3 | 86,918 | 54,408 |
+| Recall successful output | 3/3 | 3/3 | 19,220 | 10,751 |
+| Recall failed output | 3/3 | 3/3 | 15,575 | 13,861 |
+
+Both arms completed 12/12. Total input tokens decreased from 215,416 to 131,238
+(39.1%); output tokens increased from 10,814 to 11,676. Combined tokens decreased
+from 226,230 to 142,914 (36.8%). These are token counts, not billed-cost estimates.
+Tool calls increased from 33 to 36. One historical failure-log attempt read four
+pages despite obtaining the token on its first read. No original command was
+rerun. Summed task duration was 70.765 versus 74.921 seconds; the concurrent small
+sample provides no speedup claim or general success-rate estimate.
+
+Raw evidence: `benchmarks/results/history-outputs-20260924-163832.json`. The
+evaluation baseline explicitly disables historical omission so future reruns
+remain valid after enabling the production default. Deterministic tests cover
+success/failure markers, retrieval, current-turn preservation, unavailable
+archives, exact grading and restored sessions. Here unavailable means an output
+without an archive ID; deletion of a previously published archive is not repaired
+by this policy. The complete local suite ran 79 tests: 78 passed, one Windows
+symlink-permission test skipped; Ruff passed.

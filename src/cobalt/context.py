@@ -64,7 +64,7 @@ def elide_tool_results(
     elided_reads: list[str] = []
     elided_commands: list[str] = []
     # Older archived logs yield space before small source reads do.
-    # The latest output stays visible; executed commands are never recreated.
+    # The latest current-turn output stays visible; completed turns can use archives.
     latest_user = max((i for i, m in enumerate(view) if m.get("role") == "user"), default=0)
     command_results = [(i, message) for i, message in enumerate(view) if message.get("role") == "tool"
                        and call_names.get(message.get("tool_call_id")) == "run_command"]

@@ -83,7 +83,7 @@ class Agent:
             )
             + ("\n" + retry_hint if retry_hint else ""),
         }
-        return prepare_context(selected)
+        return prepare_context(selected, compact_history=True)
 
     def _save_session(self) -> None:
         self.sessions.save(self.session_id, self.messages, self.evidence.observations,

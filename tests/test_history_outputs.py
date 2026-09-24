@@ -4,12 +4,43 @@ import unittest
 from pathlib import Path
 
 from cobalt.context import prepare_context
+from cobalt.domain import ModelTurn, ToolCall
+from cobalt.engine import Agent
 from cobalt.outputs import OutputStore
+from cobalt.tools import ToolGate
 from cobalt.workspace import Workspace
 from scripts.evaluate_history_outputs import grade_recall
 
 
 class HistoryOutputTests(unittest.TestCase):
+    def test_resumed_agent_compacts_completed_turn_but_preserves_saved_output(self):
+        class Sequence:
+            def __init__(self, turns):
+                self.turns = iter(turns)
+                self.seen = []
+
+            def complete(self, messages, tools):
+                self.seen.append(messages)
+                return next(self.turns)
+
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            first = Agent(workspace, Sequence([
+                ModelTurn("", (ToolCall("old", "run_command", {
+                    "argv": [sys.executable, "-c", "print('detail '*700)"],
+                }),)), ModelTurn("Recorded."),
+            ]), ToolGate(workspace, lambda _n, _a: True))
+            first.ask("Keep the API unchanged. Collect diagnostics.")
+            model = Sequence([ModelTurn("Ready.")])
+            resumed = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False), resume=first.session_id)
+            resumed.ask("Continue.")
+            view = model.seen[0]
+            result = next(m for m in view if m.get("tool_call_id") == "old")
+            self.assertTrue(result["content"].startswith("status: elided\n"))
+            self.assertTrue(any(m.get("content") == "Keep the API unchanged. Collect diagnostics." for m in view))
+            original, _ = resumed.sessions.load(resumed.session_id)
+            self.assertTrue(any("detail " * 100 in (m.get("content") or "") for m in original))
+
     def test_recall_grader_requires_exact_observed_result_and_single_execution(self):
         self.assertTrue(grade_recall("RESULT=abc EXIT=7", "abc", 7, 1, [], True))
         for answer, count, actions, evidence in [

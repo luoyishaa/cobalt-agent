@@ -23,12 +23,18 @@ from cobalt.workspace import Workspace
 from scripts.evaluate_multiturn import run_attempt
 
 
-class HistoricalAgent(Agent):
+class BudgetOnlyAgent(Agent):
+    compact_history = False
+
     def _model_context(self, retry_hint=""):
         dynamic, _, _, _ = super()._model_context(retry_hint)
         original = list(self.messages)
         original[0] = dynamic[0]
-        return prepare_context(original, compact_history=True)
+        return prepare_context(original, compact_history=self.compact_history)
+
+
+class HistoricalAgent(BudgetOnlyAgent):
+    compact_history = True
 
 
 def grade_recall(answer, token, exit_code, executions, actions, evidence_available):
@@ -128,7 +134,7 @@ def main():
 
     def run(job):
         case, policy, attempt = job
-        cls = HistoricalAgent if policy == "historical" else Agent
+        cls = HistoricalAgent if policy == "historical" else BudgetOnlyAgent
         if case.startswith("recall_"):
             return recall_attempt(config, case, policy, attempt, cls)
         return run_attempt(config, case, policy, attempt, agent_class=cls)
