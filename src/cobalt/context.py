@@ -11,6 +11,21 @@ from .workspace import Workspace
 DEFAULT_CONTEXT_BUDGET_CHARS = 48_000
 REPEATABLE_READ_TOOLS = {"list_files", "read_file", "search", "read_output"}
 
+
+def prepare_context(
+    messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
+) -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
+    """Try reversible output omission before discarding whole user turns."""
+    view, reads, commands = elide_tool_results(messages, budget_chars)
+    if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
+        return view, 0, reads, commands
+    # If history still cannot fit, rebuild from originals so discarded turns
+    # do not needlessly consume the detail budget of the surviving turns.
+    selected, dropped = select_recent_turns(messages, budget_chars)
+    view, reads, commands = elide_tool_results(selected, budget_chars)
+    return view, dropped, reads, commands
+
+
 def select_recent_turns(
     messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
 ) -> tuple[list[dict[str, Any]], int]:

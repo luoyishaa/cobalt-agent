@@ -10,8 +10,7 @@ from .answer_audit import ReadSpan, audit_source_references
 from .context import (
     DEFAULT_CONTEXT_BUDGET_CHARS,
     EvidenceBook,
-    elide_tool_results,
-    select_recent_turns,
+    prepare_context,
 )
 from .domain import ModelTurn, RunResult, ToolOutcome
 from .journal import Journal
@@ -71,7 +70,7 @@ class Agent:
             self.recovery_resolved: set[str] = set()
 
     def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
-        selected, dropped = select_recent_turns(self.messages)
+        selected = list(self.messages)
         evidence = self.evidence.context(self.workspace)
         selected[0] = {
             "role": "system",
@@ -84,8 +83,7 @@ class Agent:
             )
             + ("\n" + retry_hint if retry_hint else ""),
         }
-        view, elided_reads, elided_commands = elide_tool_results(selected)
-        return view, dropped, elided_reads, elided_commands
+        return prepare_context(selected)
 
     def _save_session(self) -> None:
         self.sessions.save(self.session_id, self.messages, self.evidence.observations,

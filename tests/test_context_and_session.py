@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cobalt.context import EvidenceBook, select_recent_turns
+from cobalt.context import EvidenceBook, prepare_context, select_recent_turns
 from cobalt.domain import ModelTurn, ToolCall
 from cobalt.engine import Agent
 from cobalt.session import SessionStore
@@ -22,6 +22,23 @@ class ModelSequence:
 
 
 class ContextAndSessionTests(unittest.TestCase):
+    def test_unshortenable_history_does_not_strip_current_read_on_fallback(self):
+        messages = [
+            {"role": "system", "content": "rules"},
+            {"role": "user", "content": "old request " * 1000},
+            {"role": "assistant", "content": "old answer"},
+            {"role": "user", "content": "inspect current file"},
+            {"role": "assistant", "content": None, "tool_calls": [{
+                "id": "current", "function": {"name": "read_file", "arguments": "{}"},
+            }]},
+            {"role": "tool", "tool_call_id": "current", "content": "current source " * 40},
+        ]
+        view, dropped, reads, commands = prepare_context(messages, budget_chars=1500)
+        self.assertEqual(dropped, 1)
+        self.assertEqual(view[-1]["content"], messages[-1]["content"])
+        self.assertEqual(reads, [])
+        self.assertEqual(commands, [])
+
     def test_context_drops_complete_old_turns_and_keeps_tool_pair(self):
         messages = [
             {"role": "system", "content": "rules"},

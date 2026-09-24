@@ -1,0 +1,42 @@
+{
+  "at": "2026-09-24T15:14:10.149136+00:00",
+  "commit": "6d51c241b971f8f625c97f4c83e1f0ca89663968",
+  "working_tree_dirty": true,
+  "kind": "deterministic_context_delivery",
+  "model_calls": 0,
+  "budget_chars": 48000,
+  "actual_commands": 5,
+  "rows": [
+    {
+      "policy": "full_transcript_reference",
+      "characters": 62744,
+      "within_budget": false,
+      "requirement_present": true,
+      "dropped_turns": 0,
+      "elided_reads": 0,
+      "elided_commands": 0,
+      "tool_pairs_intact": true
+    },
+    {
+      "policy": "drop_turns_then_shorten",
+      "characters": 907,
+      "within_budget": true,
+      "requirement_present": false,
+      "dropped_turns": 1,
+      "elided_reads": 0,
+      "elided_commands": 0,
+      "tool_pairs_intact": true
+    },
+    {
+      "policy": "shorten_before_dropping",
+      "characters": 40512,
+      "within_budget": true,
+      "requirement_present": true,
+      "dropped_turns": 0,
+      "elided_reads": 0,
+      "elided_commands": 2,
+      "tool_pairs_intact": true
+    }
+  ],
+  "limitations": "Tests delivery of a user requirement, not model obedience or task success. Full transcript is an over-budget reference, not a feasible budget-matched policy."
+}

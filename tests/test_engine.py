@@ -23,6 +23,30 @@ class ScriptedModel:
 
 
 class AgentTests(unittest.TestCase):
+    def test_followup_keeps_user_requirement_when_old_logs_can_be_shortened(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            calls = tuple(ToolCall(f"log-{i}", "run_command", {
+                "argv": [sys.executable, "-c", "print('diagnostic ' * 1600)"],
+            }) for i in range(5))
+            model = ScriptedModel([
+                ModelTurn("", calls), ModelTurn("Diagnostics collected."),
+                ModelTurn("Ready for the next step."),
+            ])
+            agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True))
+            requirement = "Keep the public function name calculate_total unchanged. Collect diagnostics first."
+            agent.ask(requirement)
+            agent.ask("Continue with the same requirements.")
+            view = model.seen[-1]
+            self.assertIn(requirement, [m.get("content") for m in view if m["role"] == "user"])
+            self.assertLessEqual(len(json.dumps(view, ensure_ascii=False)), DEFAULT_CONTEXT_BUDGET_CHARS)
+            requested = {call["id"] for m in view for call in m.get("tool_calls") or []}
+            returned = {m["tool_call_id"] for m in view if m["role"] == "tool"}
+            self.assertEqual(requested, returned)
+            stored, _ = agent.sessions.load(agent.session_id)
+            self.assertEqual(sum("diagnostic " * 100 in m.get("content", "")
+                                 for m in stored if m["role"] == "tool"), 5)
+
     def test_archived_failed_commands_can_be_elided_without_losing_failure_status(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
