@@ -312,3 +312,18 @@ and uses an independent verifier. Case-level `forbidden_tools` and
 `require_completed` policies are checked by the evaluator, not only requested
 in the prompt. Results also record the verification fingerprint and observation
 errors.
+
+On clean commit `df815662a3b2b331c2f767ce231906791224c11b`, DeepSeek
+`deepseek-flash` passed **10/10** live cases in one regression run. The new
+command-edit repair used five tools: two reads, the modifying command, a fresh
+read, and a subsequent test command. The result recorded `invoice.py` as changed,
+one successful command supporting its verification fingerprint, no observation
+errors, and an independently passing verifier. The modifying command itself
+was not included as successful verification evidence.
+
+The run used 112,333 prompt tokens and 8,688 completion tokens; raw observations
+are in `benchmarks/results/live-20260924-094214.json`. Local verification ran
+67 tests: 66 passed and one Windows symlink-permission test was skipped. Static
+checks passed. This single live regression does not estimate general task
+success, large-repository performance, or correctness under arbitrary concurrent
+writers.
