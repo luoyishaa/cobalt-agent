@@ -220,3 +220,20 @@ elisions, and kept all file-read outputs visible. The largest model request was
 `benchmarks/results/live-20260924-082554.json`. These observations support the
 retention change for this workload; five attempts are too few to estimate a
 general success probability or isolate model randomness from the code change.
+
+## Seven-case regression after the workflow grader fix
+
+On clean commit `8d985b1d36be027cfb8888ade63e0d9c2424270b`, a single
+DeepSeek `deepseek-flash` attempt on each of the seven cases passed **7/7**.
+The four repair cases passed their external verifiers. All seven answers had
+supported source references (16 checked references in total). The verbose
+workflow used six tool calls, omitted two older command outputs from model
+requests, omitted no file reads, and stayed below the 48,000-character policy
+at 42,557 characters. The run used 56,978 prompt tokens and 4,944 completion
+tokens in total. Raw observations are in
+`benchmarks/results/live-20260924-083049.json`.
+
+The workflow grader now checks every command attempt for each required stage:
+exactly one attempt must exist and it must succeed. A scripted failed attempt
+followed by a successful retry exposed the earlier false positive. This
+seven-case run is a regression check, not a broad success-rate estimate.
