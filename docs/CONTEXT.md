@@ -46,3 +46,40 @@ semantic summary, permanent constraint store, or provider-specific token budget.
 Retaining more history can increase cost and distract a model. Before expanding
 this policy, compare task correctness and instruction compliance on repeated,
 budget-matched multi-turn coding tasks, including later user corrections.
+
+## Live multi-turn repairs
+
+Two paired cases were run three times per policy with DeepSeek `deepseek-flash`.
+Setup uses scripted model responses and five real diagnostic commands; repairs
+use the live model. See [the protocol](EDITING.md#multi-turn-evaluation-protocol).
+The baseline is the same runtime with the previous context ordering, not a
+different agent product.
+
+After the newline fix, clean commit `616c0e7` produced:
+
+| Case | Policy | Correct code | Correct code and completed run | Tool calls total | Input tokens total |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Retain earlier requirement | Drop first | 0/3 | 0/3 | 11 | 14,058 |
+| Retain earlier requirement | Shorten first | 3/3 | 3/3 | 14 | 96,461 |
+| User revises requirement | Drop first | 3/3 | 3/3 | 17 | 40,084 |
+| User revises requirement | Shorten first | 3/3 | 3/3 | 16 | 103,681 |
+
+The unsuccessful baseline requested missing specifications. Its low cost is
+not the cost of completing the task. On the revision case, both policies
+completed the task; retaining history increased input tokens in this sample.
+This supports retaining requirements, not a claim of token savings.
+
+The preceding clean-commit run (`2ce8190`) had the same functional pass counts,
+but three repairs reached the tool limit and 15 text edits failed. Traces exposed
+LF requests failing against CRLF files. After newline-compatible exact editing,
+the repeated protocol had no failed text edits or limit exits. For the current
+context policy, tool calls totaled 55 before and 30 after. This is a small
+before/after observation with model randomness, backed by deterministic newline
+tests; it is not an estimated general improvement rate.
+
+Raw reports: `benchmarks/results/multiturn-20260924-161726.json` and
+`benchmarks/results/multiturn-20260924-162153.json`. Each contains per-attempt
+source, independent verifier results, actions, context measurements and usage.
+UTC filenames correspond to September 25 in Asia/Shanghai. Local regression
+after the edit fix ran 75 tests: 74 passed, one Windows symlink-permission test
+was skipped; Ruff passed.
