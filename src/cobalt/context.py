@@ -14,15 +14,16 @@ REPEATABLE_READ_TOOLS = {"list_files", "read_file", "search", "read_output"}
 
 def prepare_context(
     messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
+    *, compact_history: bool = False,
 ) -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
     """Try reversible output omission before discarding whole user turns."""
-    view, reads, commands = elide_tool_results(messages, budget_chars)
+    view, reads, commands = elide_tool_results(messages, budget_chars, compact_history=compact_history)
     if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
         return view, 0, reads, commands
     # If history still cannot fit, rebuild from originals so discarded turns
     # do not needlessly consume the detail budget of the surviving turns.
     selected, dropped = select_recent_turns(messages, budget_chars)
-    view, reads, commands = elide_tool_results(selected, budget_chars)
+    view, reads, commands = elide_tool_results(selected, budget_chars, compact_history=compact_history)
     return view, dropped, reads, commands
 
 
@@ -51,6 +52,7 @@ def select_recent_turns(
 
 def elide_tool_results(
     messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
+    *, compact_history: bool = False,
 ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
     """Bound the model view without changing the durable transcript or tool pairing."""
     view = [dict(message) for message in messages]
@@ -63,14 +65,19 @@ def elide_tool_results(
     elided_commands: list[str] = []
     # Older archived logs yield space before small source reads do.
     # The latest output stays visible; executed commands are never recreated.
-    command_results = [message for message in view if message.get("role") == "tool"
+    latest_user = max((i for i, m in enumerate(view) if m.get("role") == "user"), default=0)
+    command_results = [(i, message) for i, message in enumerate(view) if message.get("role") == "tool"
                        and call_names.get(message.get("tool_call_id")) == "run_command"]
-    for message in command_results[:-1]:
-        if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
-            break
+    for position, (index, message) in enumerate(command_results):
+        historical = compact_history and index < latest_user
+        if not historical and (position == len(command_results) - 1
+                               or len(json.dumps(view, ensure_ascii=False)) <= budget_chars):
+            continue
         content = str(message.get("content", ""))
         header = content.splitlines()
         locator = next((line for line in header[:4] if line.startswith("output_id: ")), "")
+        if historical and not locator:
+            continue  # Early omission requires a retrievable original, including failures.
         legacy_success = content.startswith("status: ok\nexit_code: 0\n")
         if len(header) < 2 or not header[1].startswith("exit_code: ") or not (locator or legacy_success):
             continue

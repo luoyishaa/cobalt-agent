@@ -83,7 +83,7 @@ print(json.dumps(rows))
         return {"passed": False, "error": type(exc).__name__}
 
 
-def run_attempt(config, case: str, policy: str, attempt: int) -> dict:
+def run_attempt(config, case: str, policy: str, attempt: int, *, agent_class=None) -> dict:
     with tempfile.TemporaryDirectory(prefix="cobalt-multiturn-") as directory:
         root = Path(directory)
         (root / "invoice.py").write_text("def total(amounts):\n    raise NotImplementedError\n", encoding="utf-8")
@@ -105,7 +105,7 @@ def run_attempt(config, case: str, policy: str, attempt: int) -> dict:
             def complete(self, messages, tools):
                 return next(self.turns)
 
-        cls = Agent if policy == "shorten_first" else DropFirstAgent
+        cls = agent_class or (Agent if policy == "shorten_first" else DropFirstAgent)
         agent = cls(workspace, Diagnostics(), ToolGate(workspace, lambda _n, _a: True), max_tool_calls=12)
         agent.ask(REQUIREMENT)
         agent.model = from_config(config)
