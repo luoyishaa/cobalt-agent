@@ -104,6 +104,18 @@ class StaleCitationModel:
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_case_policy_can_require_runtime_completion_and_forbid_edit_tools(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        source = fixtures / "fixtures" / "grades" / "grades.py"
+        for policy in ({"require_completed": True}, {"forbidden_tools": ["replace_text"]}):
+            with self.subTest(policy=policy):
+                row = run_case({
+                    "id": "strict_repair", "fixture": "fixtures/grades", "request": "Fix the bug",
+                    "kind": "repair", "hidden_verifier": "verifiers/grades", **policy,
+                }, fixtures, lambda: StaleCitationModel(digest_bytes(source.read_bytes())))
+                self.assertFalse(row["passed"])
+                self.assertEqual(row["failure_category"], "case_policy_violation")
+
     def test_output_retrieval_requires_original_token_one_execution_and_no_edits(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
 

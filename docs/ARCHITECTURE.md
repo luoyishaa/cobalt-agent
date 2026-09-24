@@ -9,7 +9,8 @@ and evidence requirements to each request.
 
 1. **Observed actions outrank fluent answers.** A repository answer without a
    successful repository tool is marked `unverified`. An edit without a later
-   successful command is also marked `unverified`.
+   successful command supporting the current observed file version is also
+   marked `unverified`.
 2. **One workspace root.** File tools resolve each path before access. Escapes,
    runtime directories, and local `.env` files are blocked.
 3. **Edits are conditional.** `replace_text` needs the digest returned by
@@ -28,10 +29,12 @@ and evidence requirements to each request.
    final answer must point to lines read in the current run from an unchanged
    file. The agent gets one chance to correct unsupported locations. Otherwise
    the answer is marked `unverified` with the offending references recorded.
-8. **A final answer follows a fresh read.** After a file tool changes a file,
+8. **A final answer follows a fresh read.** After an observed file change,
    the runtime tracks that path until `read_file` returns its current content
    to the model. A final answer before that read gets one correction chance;
    if the read is still missing, the answer remains `unverified`.
+   A deleted file does not require an impossible reread; it still invalidates
+   earlier command evidence. See [the verification contract](VERIFICATION.md).
 
 ## Main path
 
@@ -140,9 +143,10 @@ External verification in a benchmark provides a second, independent check.
 The source-location audit checks provenance and freshness only. It cannot prove
 that a cited line supports the surrounding prose, and it does not inspect
 uncited claims. `completed` must not be interpreted as a factuality guarantee.
-The post-edit read rule applies to changes made through file tools. An approved
-arbitrary command may also change files without the runtime recognizing every
-effect, so command approval is still a separate trust decision.
+The post-edit rule covers observed changes from file tools, commands, and
+external writers. Snapshots have an explicit observation scope and are not
+atomic filesystem transactions. Unobserved external effects remain outside
+this guarantee, so command approval is still a separate trust decision.
 Conditional edits detect a changed file when the digest is checked; they do
 not provide a transaction against a writer that races with the final replace.
 New-file creation uses an atomic create-only link, while replacement retains

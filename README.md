@@ -36,6 +36,8 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
   the saved output without rerunning the command, including after a session restart.
 - The answer is marked unverified if an edit has no later successful check.
 - After an edit, the agent must reread the changed file before its final answer.
+- Observed file changes invalidate earlier command evidence, including changes
+  made by commands or external writers. Incomplete observations remain unverified.
 - Every run has an event log and a compact result under `.cobalt/runs/`.
 - If a process stops mid-tool, session resume marks that call's effect unknown
   and requires inspection; it does not run the tool again automatically.

@@ -297,3 +297,18 @@ The run used 84,738 prompt tokens and 7,617 completion tokens. See
 `benchmarks/results/live-20260924-085337.json`. Local verification ran 57 tests:
 56 passed and one Windows symlink-permission test was skipped. Static checks
 passed. No general success-rate claim follows from this single regression.
+
+## Verification-version boundaries
+
+[VERIFICATION.md](VERIFICATION.md) defines the observable file scope and the
+pass/fail conditions for invalidating command evidence. Tests use actual file
+operations and subprocesses with scripted model actions, including a concurrent
+write injected after a read. A positive edit/check/reread case ensures the
+runtime does not satisfy negative cases by rejecting every completion.
+
+`fix_invoice_via_command` extends live evaluation with a repair performed through
+`run_command`. The case forbids direct edit tools, requires runtime completion,
+and uses an independent verifier. Case-level `forbidden_tools` and
+`require_completed` policies are checked by the evaluator, not only requested
+in the prompt. Results also record the verification fingerprint and observation
+errors.

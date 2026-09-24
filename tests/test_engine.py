@@ -76,7 +76,7 @@ class AgentTests(unittest.TestCase):
                 6,
             )
 
-    def test_large_command_outputs_keep_results_and_allow_the_run_to_finish(self):
+    def test_large_command_outputs_keep_results_without_certifying_unchecked_effects(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
             calls = tuple(
@@ -85,11 +85,13 @@ class AgentTests(unittest.TestCase):
                 })
                 for index in range(5)
             )
-            model = ScriptedModel([ModelTurn("", calls), ModelTurn("The checks ran.")])
+            model = ScriptedModel([ModelTurn("", calls), ModelTurn("The checks ran."), ModelTurn("The checks ran.")])
             agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True))
             result = agent.ask("Run the checks")
-            self.assertEqual(result.status, "completed")
-            self.assertEqual(len(model.seen), 2)
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(len(model.seen), 3)
+            self.assertEqual(result.verified_commands, [])
+            self.assertEqual(set(result.changed_paths), {f"effect-{index}" for index in range(5)})
             self.assertLessEqual(len(json.dumps(model.seen[1], ensure_ascii=False)), DEFAULT_CONTEXT_BUDGET_CHARS)
             results = [message for message in model.seen[1] if message["role"] == "tool"]
             self.assertEqual(len(results), 5)

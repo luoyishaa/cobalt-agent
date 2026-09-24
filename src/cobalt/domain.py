@@ -27,6 +27,9 @@ class ToolOutcome:
     digest: str | None = None
     changed: bool = False
     verified: bool = False
+    changes: dict[str, str] = field(default_factory=dict)
+    workspace_fingerprint: str | None = None
+    observation_errors: tuple[str, ...] = ()
 
     def to_message(self) -> str:
         body = self.message[:12_000]
@@ -37,6 +40,10 @@ class ToolOutcome:
             parts.append(f"path: {self.path}")
         if self.digest:
             parts.append(f"sha256: {self.digest}")
+        if self.changes:
+            parts.append("Observed workspace changes: " + str(self.changes))
+        if self.observation_errors:
+            parts.append("Workspace observation incomplete; changes and validation cannot be certified.")
         return "\n".join(parts)
 
 
@@ -53,3 +60,5 @@ class RunResult:
     session_id: str = ""
     unsupported_references: list[str] = field(default_factory=list)
     unrefreshed_paths: list[str] = field(default_factory=list)
+    verification_fingerprint: str | None = None
+    observation_errors: list[str] = field(default_factory=list)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 from .domain import ToolOutcome
@@ -103,6 +104,19 @@ class ToolGate:
             return ToolOutcome("error", str(exc))
         if name in RISKY and not self.approve(name, args):
             return ToolOutcome("denied", "action was not approved")
+        before = self.workspace.snapshot() if name in RISKY else None
+        outcome = self._execute(name, args)
+        if before is None:
+            return outcome
+        after = self.workspace.snapshot()
+        changes = after.changes_from(before)
+        return replace(outcome, changes=changes, workspace_fingerprint=after.fingerprint,
+                       observation_errors=before.errors + after.errors,
+                       changed=outcome.changed or bool(changes),
+                       verified=outcome.verified and before.fingerprint is not None
+                       and before.fingerprint == after.fingerprint)
+
+    def _execute(self, name: str, args: dict[str, Any]) -> ToolOutcome:
         try:
             if name == "read_output":
                 return OutputStore(self.workspace.root).read(

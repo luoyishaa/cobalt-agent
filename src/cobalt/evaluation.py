@@ -174,6 +174,12 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                       and all(term.casefold() in result.answer.casefold() for term in case["answer_terms"]))
         else:
             raise ValueError("unknown case kind")
+        policy_violation = (
+            (bool(case.get("require_completed")) and result.status != "completed")
+            or bool(set(case.get("forbidden_tools", [])) & set(tool_names))
+        )
+        if policy_violation:
+            passed = False
         failure_category = None
         if not passed:
             if result.status == "model_error":
@@ -182,6 +188,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 failure_category = "context_limit"
             elif result.status == "limit":
                 failure_category = "tool_limit"
+            elif policy_violation:
+                failure_category = "case_policy_violation"
             elif protected_files_changed:
                 failure_category = "protected_tests_changed"
             elif case["kind"] == "repair" and verifier_exit != 0:
@@ -209,6 +217,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "steps": steps,
             "failure_category": failure_category,
             "changed_paths": result.changed_paths,
+            "verification_fingerprint": result.verification_fingerprint,
+            "observation_errors": result.observation_errors,
             "successful_commands": len(result.verified_commands),
             "verifier_exit": verifier_exit,
             "baseline_verifier_exit": baseline_exit,

@@ -18,8 +18,9 @@ from pathlib import Path
 
 from .domain import ToolOutcome
 from .outputs import OutputStore
+from .snapshots import Snapshot, capture
 
-SKIP_DIRS = {".git", ".cobalt", ".venv", "__pycache__", "node_modules"}
+SKIP_DIRS = {".git", ".cobalt", ".venv", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", ".mypy_cache"}
 MAX_READ_BYTES = 128_000
 MAX_OUTPUT_CHARS = 12_000
 
@@ -38,6 +39,9 @@ class Workspace:
         self.root = root.expanduser().resolve(strict=True)
         if not self.root.is_dir():
             raise ValueError("workspace root must be a directory")
+
+    def snapshot(self) -> Snapshot:
+        return capture(self.root, SKIP_DIRS, private_name)
 
     def _path(self, relative: str, *, must_exist: bool = False) -> Path:
         if not relative or Path(relative).is_absolute():
