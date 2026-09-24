@@ -70,11 +70,14 @@ def elide_tool_results(
         content = str(message.get("content", ""))
         if not content.startswith("status: ok\nexit_code: 0\n"):
             continue
+        raw_output = content.split("\n", 2)[2]
         marker = (
             "status: elided\ntool: run_command\nexit_code: 0\n"
-            f"output_chars: {len(content)}\noutput_sha256: {sha256(content.encode('utf-8')).hexdigest()}\n"
-            "The full output remains in the session. It is not visible in this model request. "
-            "Do not rerun this command merely to recover its output; inspect current files or use a new safe check."
+            f"result_chars: {len(content)}\nresult_sha256: {sha256(content.encode('utf-8')).hexdigest()}\n"
+            "Raw output prefix (not a summary):\n" + raw_output[:240] +
+            "\n[... middle omitted ...]\nRaw output suffix (not a summary):\n" + raw_output[-240:] +
+            "\nThe full result remains in the session. Do not rerun this command merely to recover "
+            "omitted output; inspect current files or use a new safe check."
         )
         if len(content) <= len(marker):
             continue

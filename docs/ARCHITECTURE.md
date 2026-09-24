@@ -67,8 +67,10 @@ may replace older results from repeatable read tools with explicit omission
 markers. The complete results stay in the session, and tool call/result pairs
 remain intact. Final source references count only reads whose contents were
 visible in the last model request. Older successful command outputs can also
-be replaced in the model view with an exit code, output length, digest, and
-explicit omission warning. The latest command output stays visible; the full
+be replaced in the model view with an exit code, result length and digest,
+small verbatim output prefix and suffix, and an explicit omission warning.
+These excerpts are labeled as raw text, not a semantic summary. The latest
+command output stays visible; the full
 output remains in the session. Failed command output and write results stay
 visible. If the request remains too large, the run stops with `context_limit`
 before calling the model. This is a bounded character policy,

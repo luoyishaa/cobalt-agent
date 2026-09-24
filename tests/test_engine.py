@@ -61,7 +61,7 @@ class AgentTests(unittest.TestCase):
             workspace = Workspace(Path(directory))
             calls = tuple(
                 ToolCall(f"command-{index}", "run_command", {
-                    "argv": [sys.executable, "-c", f"from pathlib import Path; Path('effect-{index}').write_text('done'); print('x' * 12000)"],
+                    "argv": [sys.executable, "-c", f"from pathlib import Path; Path('effect-{index}').write_text('done'); print('check-{index}: PASS'); print('x' * 12000)"],
                 })
                 for index in range(5)
             )
@@ -74,6 +74,7 @@ class AgentTests(unittest.TestCase):
             results = [message for message in model.seen[1] if message["role"] == "tool"]
             self.assertEqual(len(results), 5)
             self.assertTrue(any(message["content"].startswith("status: elided") for message in results[:-1]))
+            self.assertIn("check-0: PASS", results[0]["content"])
             self.assertIn("x" * 100, results[-1]["content"])
             self.assertTrue(all((workspace.root / f"effect-{index}").read_text() == "done" for index in range(5)))
             stored, _ = agent.sessions.load(agent.session_id)

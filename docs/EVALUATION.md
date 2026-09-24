@@ -175,3 +175,27 @@ events record denied actions and omitted outputs. It prevents blind replay; it
 does not prove that a later inspection covers every possible effect of an
 arbitrary external command. The command still requires the normal tool gate
 approval when it is allowed again.
+
+## Live pressure case: verbose checks
+
+`run_noisy_checks` makes the model read a checker, then execute five independent
+stages whose logs are long enough to pressure the context budget. The grader
+requires exactly one successful command for each stage and all stage names in
+the answer. It also records how many read and command outputs were omitted in
+the model view. This case probes a protocol path; it is not a general coding
+ability benchmark.
+
+On commit `181de5007746ef3f6d2c2be9bc5f1fa7b44de221`, three independent
+DeepSeek attempts passed **2/3**. The failed run executed all five stages
+successfully but then called `read_file` and `search` repeatedly, reached the
+12-call limit, and gave no final result. Across its model requests, the run
+record counts 6 command-output elisions and 5 read-output elisions (the same
+tool result may be counted again in a later request). The two passing attempts
+also had output elisions. The raw report is
+`benchmarks/results/live-20260924-081850.json`.
+
+The failure is consistent with the model trying to recover the `PASS` banners
+that the old omission marker had removed, even though it retained exit codes.
+That is a diagnostic hypothesis, not proof of the model's private reasoning.
+The next revision preserves explicitly labeled raw prefix and suffix excerpts
+of old successful logs while still retaining the full result in the session.
