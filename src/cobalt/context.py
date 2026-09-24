@@ -7,8 +7,11 @@ from typing import Any
 
 from .workspace import Workspace
 
+DEFAULT_CONTEXT_BUDGET_CHARS = 48_000
 
-def select_recent_turns(messages: list[dict[str, Any]], budget_chars: int = 48_000) -> tuple[list[dict[str, Any]], int]:
+def select_recent_turns(
+    messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
+) -> tuple[list[dict[str, Any]], int]:
     """Drop only whole completed user turns; never orphan a tool response."""
     if not messages or messages[0].get("role") != "system":
         raise ValueError("conversation must start with a system message")

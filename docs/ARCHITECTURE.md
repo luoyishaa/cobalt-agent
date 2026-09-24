@@ -53,8 +53,18 @@ DeepSeek chat-completions protocol. A scripted adapter is used in tests.
 
 The session file supports continuing a conversation after a new CLI process
 starts. The context selector drops only complete older user turns, so no tool
-reply is separated from its call. The evidence book retains a few file excerpts
-with digests; changed files are labeled stale and must be read again.
+reply is separated from its call. Each run records the selected context size,
+dropped turn count, and whether the final request exceeded the character budget.
+The evidence book retains a few file excerpts with digests; changed files are
+labeled stale and must be read again.
+
+The runtime saves the user request and the model's tool-call request before a
+tool runs, then saves after each tool reply. If a process stops between a tool
+request and its reply, resuming the session inserts an `interrupted` reply that
+says the effect is unknown. It never executes that call again automatically.
+The next request must inspect the workspace before claiming what happened.
+This protects against a false "the tool failed" conclusion; it does not make
+an arbitrary external command transactional or guarantee exactly-once effects.
 
 ## Extension points
 
@@ -88,5 +98,9 @@ effect, so command approval is still a separate trust decision.
 Conditional edits detect a changed file when the digest is checked; they do
 not provide a transaction against a writer that races with the final replace.
 New-file creation uses an atomic create-only link, while replacement retains
-the existing file's permission bits. Session resume continues between requests;
-it does not replay an interrupted command or finish a partially executed run.
+the existing file's permission bits. Session resume closes an interrupted tool
+protocol without replaying the tool; it does not finish a partially executed
+run or recover a command's missing output. A process that stops before a model
+turn is recorded may leave an unanswered user request in the transcript.
+Context size is logged, but a single oversized current turn is not compressed
+yet and can still exceed model limits.

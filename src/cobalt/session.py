@@ -10,6 +10,29 @@ from pathlib import Path
 from typing import Any
 
 
+def close_interrupted_calls(messages: list[dict[str, Any]]) -> list[str]:
+    """Close missing tool replies without guessing whether their effects happened."""
+    pending: dict[str, str] = {}
+    for message in messages:
+        if message.get("role") == "assistant":
+            for call in message.get("tool_calls") or []:
+                call_id = call.get("id")
+                if isinstance(call_id, str) and call_id:
+                    pending[call_id] = call.get("function", {}).get("name", "unknown")
+        elif message.get("role") == "tool":
+            pending.pop(message.get("tool_call_id"), None)
+    for call_id, name in pending.items():
+        messages.append({
+            "role": "tool",
+            "tool_call_id": call_id,
+            "content": (
+                f"status: interrupted\ntool: {name}\nExecution outcome is unknown after a process interruption. "
+                "Inspect the current workspace before relying on this action. Do not assume it failed or repeat it automatically."
+            ),
+        })
+    return list(pending)
+
+
 class SessionStore:
     def __init__(self, root: Path):
         self.root = root.resolve()

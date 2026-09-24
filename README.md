@@ -28,6 +28,8 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
 - The answer is marked unverified if an edit has no later successful check.
 - After an edit, the agent must reread the changed file before its final answer.
 - Every run has an event log and a compact result under `.cobalt/runs/`.
+- If a process stops mid-tool, session resume marks that call's effect unknown
+  and requires inspection; it does not run the tool again automatically.
 - Explicit `file:line` references are checked against fresh reads. A completed
   run records actions; it does not certify every sentence in the answer.
 

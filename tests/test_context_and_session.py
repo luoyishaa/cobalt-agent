@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from cobalt.context import EvidenceBook, select_recent_turns
-from cobalt.domain import ModelTurn
+from cobalt.domain import ModelTurn, ToolCall
 from cobalt.engine import Agent
 from cobalt.session import SessionStore
 from cobalt.tools import ToolGate
@@ -68,3 +68,63 @@ class ContextAndSessionTests(unittest.TestCase):
                 message.get("content") == "Is there a config file?"
                 for message in next_model.seen[0]
             ))
+
+    def test_resume_marks_unknown_tool_effect_without_repeating_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = Workspace(root)
+
+            class InterruptedGate(ToolGate):
+                def execute(self, name, args):
+                    outcome = super().execute(name, args)
+                    if name == "create_file":
+                        raise KeyboardInterrupt("simulated crash after write")
+                    return outcome
+
+            first = Agent(
+                workspace,
+                ModelSequence([ModelTurn("", (ToolCall("write-1", "create_file", {
+                    "path": "created.txt", "content": "written once",
+                }),))]),
+                InterruptedGate(workspace, lambda _name, _args: True),
+            )
+            with self.assertRaises(KeyboardInterrupt):
+                first.ask("Create the file")
+            self.assertEqual((root / "created.txt").read_text(encoding="utf-8"), "written once")
+
+            stored, _ = SessionStore(root).load(first.session_id)
+            self.assertEqual(stored[-1]["role"], "assistant")
+            model = ModelSequence([
+                ModelTurn("", (ToolCall("inspect-1", "read_file", {"path": "created.txt"}),)),
+                ModelTurn("The file exists after the interruption."),
+            ])
+            resumed = Agent(workspace, model, ToolGate(workspace, lambda _name, _args: False), resume=first.session_id)
+            self.assertEqual(resumed.recovered_calls, ["write-1"])
+            result = resumed.ask("Check what happened")
+            self.assertEqual(result.status, "completed")
+            self.assertTrue(any(
+                message.get("role") == "tool" and message.get("tool_call_id") == "write-1"
+                and "outcome is unknown" in message["content"]
+                for message in model.seen[0]
+            ))
+            self.assertEqual((root / "created.txt").read_text(encoding="utf-8"), "written once")
+            events = root / ".cobalt" / "runs" / result.run_id / "events.jsonl"
+            self.assertIn("session_recovered", events.read_text(encoding="utf-8"))
+
+    def test_old_session_evidence_does_not_count_as_a_new_repository_action(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "fact.txt").write_text("fact", encoding="utf-8")
+            workspace = Workspace(root)
+            read = workspace.read_file("fact.txt")
+            store = SessionStore(root)
+            session_id = store.new_id()
+            store.save(session_id, [{"role": "system", "content": "rules"}], {
+                "fact.txt": {"sha256": read.digest, "excerpt": read.message},
+            })
+            agent = Agent(
+                workspace, ModelSequence([ModelTurn("The fact is in fact.txt.")]),
+                ToolGate(workspace, lambda _name, _args: False), resume=session_id,
+            )
+            result = agent.ask("Where is the fact?")
+            self.assertEqual(result.status, "unverified")

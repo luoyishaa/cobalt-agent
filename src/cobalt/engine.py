@@ -7,11 +7,11 @@ import uuid
 from typing import Any
 
 from .answer_audit import ReadSpan, audit_source_references
-from .context import EvidenceBook, select_recent_turns
+from .context import DEFAULT_CONTEXT_BUDGET_CHARS, EvidenceBook, select_recent_turns
 from .domain import ModelTurn, RunResult
 from .journal import Journal
 from .model import Model, ModelOutputError
-from .session import SessionStore
+from .session import SessionStore, close_interrupted_calls
 from .tools import ToolGate
 from .workspace import Workspace
 
@@ -48,9 +48,13 @@ class Agent:
         if resume:
             self.messages, observations = self.sessions.load(resume)
             self.evidence = EvidenceBook(observations)
+            self.recovered_calls = close_interrupted_calls(self.messages)
+            if self.recovered_calls:
+                self.sessions.save(self.session_id, self.messages, self.evidence.observations)
         else:
             self.messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM}]
             self.evidence = EvidenceBook()
+            self.recovered_calls = []
 
     def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int]:
         selected, dropped = select_recent_turns(self.messages)
@@ -59,6 +63,11 @@ class Agent:
             "role": "system",
             "content": SYSTEM + "\n" + self.workspace.overview()
             + ("\nRecent file evidence:\n" + evidence if evidence else "")
+            + (
+                "\nSession recovery: tool calls " + ", ".join(self.recovered_calls)
+                + " were interrupted. Their effects are unknown. Inspect the workspace before making claims or retrying."
+                if self.recovered_calls else ""
+            )
             + ("\n" + retry_hint if retry_hint else ""),
         }
         return selected, dropped
@@ -72,13 +81,16 @@ class Agent:
         run_id = "run-" + uuid.uuid4().hex[:12]
         journal = Journal(self.workspace.root, run_id)
         journal.add("run_started", question=question)
+        if self.recovered_calls:
+            journal.add("session_recovered", interrupted_call_ids=self.recovered_calls)
         self.messages.append({"role": "user", "content": question})
+        self._save_session()
         changed_paths: list[str] = []
         pending_refresh: set[str] = set()
         read_spans: list[ReadSpan] = []
         verified_commands: list[list[str]] = []
         calls_used = 0
-        observed_repository = bool(self.evidence.observations and "Fresh observed file" in self.evidence.context(self.workspace))
+        observed_repository = False
         prompt_tokens = 0
         completion_tokens = 0
         malformed_responses = 0
@@ -88,7 +100,12 @@ class Agent:
         while calls_used < self.max_tool_calls:
             try:
                 prompt_messages, dropped = self._model_context(retry_hint)
-                journal.add("context_built", dropped_turns=dropped, characters=len(json.dumps(prompt_messages, ensure_ascii=False)))
+                context_chars = len(json.dumps(prompt_messages, ensure_ascii=False))
+                journal.add(
+                    "context_built", dropped_turns=dropped, characters=context_chars,
+                    budget_chars=DEFAULT_CONTEXT_BUDGET_CHARS,
+                    over_budget=context_chars > DEFAULT_CONTEXT_BUDGET_CHARS,
+                )
                 turn: ModelTurn = self.model.complete(prompt_messages, self.tools.schemas())
                 retry_hint = ""
             except ModelOutputError as exc:
@@ -179,6 +196,8 @@ class Agent:
                     for call in turn.calls
                 ],
             })
+            # Commit the request before any tool can cause an external effect.
+            self._save_session()
             for call in turn.calls:
                 if calls_used >= self.max_tool_calls:
                     # The model protocol still needs a result for every call in its turn.
@@ -186,6 +205,7 @@ class Agent:
                     journal.add("tool_rejected", name=call.name, reason="limit")
                 else:
                     calls_used += 1
+                    journal.add("tool_started", call_id=call.call_id, name=call.name, args=call.arguments)
                     outcome = self.tools.execute(call.name, call.arguments)
                     outcome_text = outcome.to_message()
                     journal.add(
@@ -213,7 +233,7 @@ class Agent:
                 self.messages.append({
                     "role": "tool", "tool_call_id": call.call_id, "content": outcome_text,
                 })
-            self._save_session()
+                self._save_session()
         answer = "Stopped at the tool call limit. Review the run log before continuing."
         result = RunResult(
             run_id, answer, "limit", calls_used, changed_paths,
