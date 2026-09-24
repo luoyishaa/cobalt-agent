@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from .domain import ToolOutcome
 from .engine import Agent
 from .model import Model
 from .tools import ToolGate
@@ -40,7 +42,25 @@ def verifier_environment(workspace_path: Path) -> dict[str, str]:
     return env
 
 
-def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[[], Model]) -> dict[str, Any]:
+class EvaluationGate(ToolGate):
+    """A capability ablation for evaluation, not a different model or prompt."""
+
+    def __init__(self, workspace: Workspace, output_retrieval: bool):
+        super().__init__(workspace, lambda _name, _args: True)
+        self.output_retrieval = output_retrieval
+
+    def schemas(self):
+        return [schema for schema in super().schemas()
+                if self.output_retrieval or schema["function"]["name"] != "read_output"]
+
+    def execute(self, name, args):
+        if name == "read_output" and not self.output_retrieval:
+            return ToolOutcome("denied", "Saved output retrieval is disabled for this evaluation.")
+        return super().execute(name, args)
+
+
+def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[[], Model],
+             *, output_retrieval: bool = True) -> dict[str, Any]:
     source = (fixtures_root / case["fixture"]).resolve()
     if not source.is_dir() or not source.is_relative_to(fixtures_root.resolve()):
         raise ValueError("case fixture is missing or outside fixture root")
@@ -68,7 +88,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 raise ValueError("repair case already passes its external verifier before the agent runs")
         original_tests = test_sources(workspace_path)
         workspace = Workspace(workspace_path)
-        agent = Agent(workspace, model_factory(), ToolGate(workspace, lambda _name, _args: True), max_tool_calls=12)
+        agent = Agent(workspace, model_factory(), EvaluationGate(workspace, output_retrieval), max_tool_calls=12)
         started = time.monotonic()
         result = agent.ask(case["request"])
         elapsed = round(time.monotonic() - started, 3)
@@ -91,7 +111,30 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         verifier_exit = None
         verifier_output = ""
         protected_files_changed = original_tests != test_sources(workspace_path)
-        if case["kind"] == "repair":
+        executions = None
+        if case["kind"] == "output_retrieval":
+            receipt_path = workspace_path / ".cobalt" / "receipt.json"
+            try:
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                receipt = {}
+            token = receipt.get("token", "")
+            executions = receipt.get("executions", 0)
+            commands = [event for event in events if event["kind"] == "tool_finished" and event["name"] == "run_command"]
+            command_matches = (len(commands) == 1 and commands[0]["args"].get("argv", [])[1:] == case["required_argv"])
+            command_output = commands[0].get("output", "") if command_matches else ""
+            locator = re.search(r"output_id: (output-[a-f0-9]{32})", command_output)
+            retrieved = bool(locator and token) and any(
+                event["kind"] == "tool_finished" and event["name"] == "read_output" and event["status"] == "ok"
+                and event["args"].get("output_id") == locator[1] and "RESULT=" + token in event.get("output", "")
+                for event in events
+            )
+            fixture_unchanged = (workspace_path / "emit.py").read_bytes() == (source / "emit.py").read_bytes()
+            passed = bool(result.status == "completed" and executions == 1 and command_matches and retrieved
+                          and fixture_unchanged and not result.changed_paths and token in result.answer
+                          and command_output.startswith(f"exit_code: {case['expected_exit']}\n")
+                          and re.search(rf"\b{case['expected_exit']}\b", result.answer))
+        elif case["kind"] == "repair":
             assert command is not None
             verified = subprocess.run(
                 command, cwd=workspace_path, env=verifier_environment(workspace_path),
@@ -142,6 +185,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 failure_category = "no_successful_check"
             elif case["kind"] == "workflow" and not commands_match:
                 failure_category = "workflow_command_mismatch"
+            elif case["kind"] == "output_retrieval":
+                failure_category = "output_retrieval_contract_failed"
             else:
                 failure_category = "answer_or_evidence_mismatch"
         return {
@@ -150,6 +195,9 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "passed": passed,
             "run_status": result.status,
             "tool_calls": result.tool_calls,
+            "output_retrieval_enabled": output_retrieval,
+            "output_read_calls": tool_names.count("read_output"),
+            "effect_count": executions,
             "tool_names": tool_names,
             "steps": steps,
             "failure_category": failure_category,

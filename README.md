@@ -32,6 +32,8 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
 - The model returns native structured tool calls, which the runtime validates.
 - File edits require the digest from a prior read, preventing stale overwrites.
 - Commands receive an argument array and run without a shell.
+- Large command outputs have durable IDs. The agent can search or page through
+  the saved output without rerunning the command, including after a session restart.
 - The answer is marked unverified if an edit has no later successful check.
 - After an edit, the agent must reread the changed file before its final answer.
 - Every run has an event log and a compact result under `.cobalt/runs/`.

@@ -64,17 +64,38 @@ excerpt-only observations remain readable as location-only entries.
 
 When the current user turn alone exceeds the character budget, the model view
 may replace older results from repeatable read tools with explicit omission
-markers. The complete results stay in the session, and tool call/result pairs
+markers. The captured tool replies stay in the session, and tool call/result pairs
 remain intact. Final source references count only reads whose contents were
-visible in the last model request. Older successful command outputs can also
+visible in the last model request. Older archived command outputs can also
 be replaced in the model view with an exit code, result length and digest,
 small verbatim output prefix and suffix, and an explicit omission warning.
-These excerpts are labeled as raw text, not a semantic summary. Old successful
+These excerpts are labeled as raw text, not a semantic summary. Old archived
 command logs yield space before small file reads; the latest command output
-stays visible. The full output remains in the session. Failed command output
-and write results stay visible. If the request remains too large, the run stops
+stays visible. Failure status and exit codes remain in omission markers;
+unarchived failures and write results stay visible. If the request remains too large, the run stops
 with `context_limit` before calling the model. This is a bounded character policy,
 not a provider token count or a semantic compaction system.
+
+Command output is streamed to temporary files. After completion or timeout,
+`OutputStore` publishes a separate archive under `.cobalt/outputs/`: stdout,
+an explicit stderr separator, then stderr. This layout does not preserve the
+interleaved timing of both streams. The command reply contains a bounded preview
+and an `output_id`; the session does not contain the complete large log.
+`read_output` reads that archive by byte offset or literal UTF-8 search, returning
+at most 8,000 bytes plus metadata. Byte offsets handle logs with extremely long
+lines; UTF-8 sequences split at a page boundary are displayed with replacement.
+The tool checks the archived digest before serving data. The file and metadata
+are flushed before their directory is published. These choices follow Python's
+[subprocess file redirection](https://docs.python.org/3/library/subprocess.html)
+and [flush, fsync and replace APIs](https://docs.python.org/3/library/os.html).
+
+Archived reads are historical observations. They do not create fresh file
+citations, satisfy post-edit rereads, or clear the recovery inspection barrier.
+They can themselves be omitted from a later model request, retaining a locator.
+Search and integrity verification use bounded memory but scan the archive;
+there is no search index, disk quota, automatic retention cleanup, or protection
+against a malicious local command modifying both data and metadata. Archives
+are workspace-scoped, not isolated between sessions or users.
 
 The runtime saves the user request and the model's tool-call request before a
 tool runs, then saves after each tool reply. If a process stops between a tool
@@ -122,7 +143,9 @@ not provide a transaction against a writer that races with the final replace.
 New-file creation uses an atomic create-only link, while replacement retains
 the existing file's permission bits. Session resume closes an interrupted tool
 protocol without replaying the tool; it does not finish a partially executed
-run or recover a command's missing output. A process that stops before a model
+run or recover output that was never published. A published archive may survive
+without its tool reply; the runtime does not infer success from an orphan archive.
+A process that stops before a model
 turn is recorded may leave an unanswered user request in the transcript.
-Context size is logged, but a single oversized current turn is not compressed
-yet and can still exceed model limits.
+Context size is logged. If safe omissions cannot fit the current turn, the run
+stops before sending an oversized request.

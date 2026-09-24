@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 from .domain import ToolOutcome
+from .outputs import OutputStore
 
 SKIP_DIRS = {".git", ".cobalt", ".venv", "__pycache__", "node_modules"}
 MAX_READ_BYTES = 128_000
@@ -193,19 +194,27 @@ class Workspace:
                 stdout=stdout, stderr=stderr, creationflags=flags,
                 start_new_session=os.name != "nt",
             )
+            timed_out = False
             try:
                 proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 self._stop_process_tree(proc)
-                return ToolOutcome("error", f"command timed out after {timeout}s")
+                timed_out = True
+            output_id = OutputStore(self.root).save(stdout, stderr, exit_code=proc.returncode, timed_out=timed_out)
             stdout.seek(0)
             stderr.seek(0)
             combined = stdout.read(MAX_OUTPUT_CHARS + 1) + b"\n" + stderr.read(MAX_OUTPUT_CHARS + 1)
             output = combined[:MAX_OUTPUT_CHARS].decode("utf-8", errors="replace").strip()
             if len(combined) > MAX_OUTPUT_CHARS:
                 output += "\n[output truncated]"
-            message = f"exit_code: {proc.returncode}\n{output or '(no output)'}"
-            return ToolOutcome("ok" if proc.returncode == 0 else "error", message, verified=proc.returncode == 0)
+            message = (
+                f"exit_code: {proc.returncode}\noutput_id: {output_id}\n"
+                "Use read_output with this ID to search or page through the original output; do not rerun for logs.\n"
+                + (f"command timed out after {timeout}s\n" if timed_out else "")
+                + (output or "(no output)")
+            )
+            success = proc.returncode == 0 and not timed_out
+            return ToolOutcome("ok" if success else "error", message, verified=success)
 
     @staticmethod
     def _stop_process_tree(proc: subprocess.Popen) -> None:

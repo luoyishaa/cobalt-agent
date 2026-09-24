@@ -23,6 +23,26 @@ class ScriptedModel:
 
 
 class AgentTests(unittest.TestCase):
+    def test_archived_failed_commands_can_be_elided_without_losing_failure_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            calls = (ToolCall("inspect", "list_files", {}),) + tuple(
+                ToolCall(f"failed-{index}", "run_command", {
+                    "argv": [sys.executable, "-c", "import sys; print('ERROR: ' + 'x'*20000); sys.exit(7)"],
+                }) for index in range(5)
+            )
+            model = ScriptedModel([ModelTurn("", calls), ModelTurn("All five commands failed.")])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Inspect failed checks")
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(result.verified_commands, [])
+            elided = [m["content"] for m in model.seen[-1] if m.get("role") == "tool"
+                      and m.get("content", "").startswith("status: elided")]
+            self.assertTrue(elided)
+            for content in elided:
+                self.assertIn("exit_code: 7", content)
+                self.assertIn("original_status: error", content)
+                self.assertIn("output_id: output-", content)
+
     def test_many_large_reads_stay_within_model_context_budget(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -237,3 +237,28 @@ The workflow grader now checks every command attempt for each required stage:
 exactly one attempt must exist and it must succeed. A scripted failed attempt
 followed by a successful retry exposed the earlier false positive. This
 seven-case run is a regression check, not a broad success-rate estimate.
+
+## Saved output retrieval protocol
+
+Two additional cases generate a random token during a single command and bury
+it beyond the 12,000-character preview. One exits successfully; the other puts
+the token in stderr and exits with code 7. An independent receipt records the
+generated token and execution count. Passing requires one exact command
+attempt, one side effect, unchanged fixture code, a successful read of that
+command's archive containing the token, and an answer with the token and exit
+code. The token cannot be known from source code alone.
+
+`--without-output-retrieval` removes the read tool from the schema and denies
+attempted calls. This is a capability ablation on the same implementation,
+model and prompts, not a comparison against an earlier commit. Both arms still
+save outputs. Run each case with and without the flag and record independent
+attempts with `--repeat`.
+
+Deterministic regressions cover middle-of-output recall after restart, bounded
+pagination, search across a 64-KiB chunk boundary, stderr after large stdout,
+timeout output, corruption rejection, and context pressure from repeated reads
+and failures. A parent process also terminates a real worker before the command
+effect, after the effect but before the reply is saved, and after reply saving.
+The first two retain a recovery barrier; archive reads alone cannot clear it.
+This tests process termination at signaled boundaries, not power loss or every
+possible scheduling interleaving.

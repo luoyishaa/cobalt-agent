@@ -1,3 +1,4 @@
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -103,6 +104,27 @@ class StaleCitationModel:
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_output_retrieval_requires_original_token_one_execution_and_no_edits(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+
+        class LookupModel:
+            def complete(self, messages, tools):
+                last = messages[-1]
+                if last["role"] == "user":
+                    return ModelTurn("", (ToolCall("inspect", "read_file", {"path": "emit.py"}),))
+                if last.get("tool_call_id") == "inspect":
+                    return ModelTurn("", (ToolCall("emit", "run_command", {"argv": [sys.executable, "emit.py", "ok"]}),))
+                if last.get("tool_call_id") == "emit":
+                    output_id = re.search(r"output_id: (output-[a-f0-9]{32})", last["content"])[1]
+                    return ModelTurn("", (ToolCall("lookup", "read_output", {"output_id": output_id, "query": "RESULT=", "limit": 100}),))
+                token = re.search(r"RESULT=([a-f0-9]{48})", last["content"])[1]
+                return ModelTurn(f"RESULT={token}; exit_code: 0")
+
+        case = {"id": "retrieve", "kind": "output_retrieval", "fixture": "fixtures/output_retrieval",
+                "request": "Run once and recover RESULT", "required_argv": ["emit.py", "ok"], "expected_exit": 0}
+        self.assertTrue(run_case(case, fixtures, LookupModel)["passed"])
+        self.assertFalse(run_case(case, fixtures, AnswerOnlyModel)["passed"])
+
     def test_workflow_case_requires_actual_stage_commands(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
         row = run_case({

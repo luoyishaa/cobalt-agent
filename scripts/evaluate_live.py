@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=1, help="Independent attempts per case (1..10)")
     parser.add_argument("--case", action="append", help="Only run this case id; may be repeated")
     parser.add_argument("--allow-dirty", action="store_true", help="Run an exploratory check with uncommitted code")
+    parser.add_argument("--without-output-retrieval", action="store_true", help="Ablate the saved-output read tool")
     args = parser.parse_args()
     if not 1 <= args.repeat <= 10:
         parser.error("--repeat must be 1..10")
@@ -40,7 +41,8 @@ def main() -> None:
     rows = []
     for case in cases:
         for attempt in range(1, args.repeat + 1):
-            row = run_case(case, root / "benchmarks", lambda: from_config(config))
+            row = run_case(case, root / "benchmarks", lambda: from_config(config),
+                           output_retrieval=not args.without_output_retrieval)
             row["attempt"] = attempt
             rows.append(row)
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=False)
@@ -48,6 +50,7 @@ def main() -> None:
         "at": datetime.now(UTC).isoformat(),
         "provider": config.provider,
         "model": config.model,
+        "output_retrieval_enabled": not args.without_output_retrieval,
         "repeats_per_case": args.repeat,
         "commit": commit.stdout.strip() if commit.returncode == 0 else "uncommitted",
         "working_tree_dirty": bool(dirty.stdout.strip()),

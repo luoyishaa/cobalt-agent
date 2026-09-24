@@ -280,7 +280,7 @@ class Agent:
                             pending_refresh.remove(outcome.path)
                             refresh_retries = 0
                             journal.add("post_edit_read_completed", path=outcome.path, digest=outcome.digest)
-                    if call.name in {"list_files", "read_file", "search", "run_command"} and outcome.status == "ok":
+                    if call.name in {"list_files", "read_file", "search", "run_command", "read_output"} and outcome.status == "ok":
                         observed_repository = True
                     if call.name == "run_command" and outcome.verified:
                         verified_commands.append(list(call.arguments["argv"]))

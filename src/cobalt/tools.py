@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .domain import ToolOutcome
+from .outputs import OutputStore
 from .workspace import Workspace
 
 
@@ -33,6 +34,11 @@ def integer_field(description: str) -> dict:
     return {"type": "integer", "description": description}
 
 TOOL_SCHEMAS = [
+    _tool("read_output", "Read saved command output without executing anything. Offsets and limits are bytes; optional literal query finds the first match at or after offset. Historical output is not current file evidence.", {
+        "output_id": string_field("ID returned by run_command"),
+        "offset": integer_field("Starting byte offset; default 0"),
+        "limit": integer_field("Maximum returned bytes, 1..8000; default 4000"),
+        "query": string_field("Optional literal UTF-8 search text, 1..256 characters")}, ["output_id"]),
     _tool("list_files", "List a bounded view of the repository tree.", {"path": string_field("Relative directory; default '.'")}, []),
     _tool("read_file", "Read numbered lines and get a content SHA-256 for safe edits.", {
         "path": string_field("Relative file path"), "start": integer_field("First line number"), "lines": integer_field("Number of lines, up to 400")}, ["path"]),
@@ -98,6 +104,11 @@ class ToolGate:
         if name in RISKY and not self.approve(name, args):
             return ToolOutcome("denied", "action was not approved")
         try:
+            if name == "read_output":
+                return OutputStore(self.workspace.root).read(
+                    args["output_id"], offset=args.get("offset", 0), limit=args.get("limit", 4000),
+                    query=args.get("query"),
+                )
             if name == "list_files":
                 return self.workspace.list_files(str(args.get("path", ".")))
             if name == "read_file":

@@ -2,6 +2,22 @@
   "version": 2,
   "cases": [
     {
+      "id": "retrieve_buried_result",
+      "fixture": "fixtures/output_retrieval",
+      "request": "Read emit.py. Execute `python emit.py ok` exactly once, then report the exact random RESULT token and the exit code from that invocation's captured output. The result is buried in a large log. Do not modify files, rerun the command, or execute other commands to recover output. Use available read-only tools. If the result cannot be recovered, say so instead of guessing.",
+      "kind": "output_retrieval",
+      "required_argv": ["emit.py", "ok"],
+      "expected_exit": 0
+    },
+    {
+      "id": "retrieve_failed_result",
+      "fixture": "fixtures/output_retrieval",
+      "request": "Read emit.py. Execute `python emit.py fail` exactly once, then report the exact random RESULT token and the nonzero exit code from that invocation's captured output. The result is buried in stderr behind a large stdout log. Do not modify files, rerun the command, or execute other commands to recover output. Use available read-only tools. If the result cannot be recovered, say so instead of guessing.",
+      "kind": "output_retrieval",
+      "required_argv": ["emit.py", "fail"],
+      "expected_exit": 7
+    },
+    {
       "id": "locate_entrypoint",
       "fixture": "fixtures/entrypoint",
       "request": "Find where the CLI argument parser is defined. Name the file and the function, and explain what the --port option changes. Read the code before answering.",

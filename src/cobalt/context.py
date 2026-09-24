@@ -9,7 +9,7 @@ from typing import Any
 from .workspace import Workspace
 
 DEFAULT_CONTEXT_BUDGET_CHARS = 48_000
-REPEATABLE_READ_TOOLS = {"list_files", "read_file", "search"}
+REPEATABLE_READ_TOOLS = {"list_files", "read_file", "search", "read_output"}
 
 def select_recent_turns(
     messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
@@ -46,7 +46,7 @@ def elide_tool_results(
     }
     elided_reads: list[str] = []
     elided_commands: list[str] = []
-    # Large, older successful logs yield space before small source reads do.
+    # Older archived logs yield space before small source reads do.
     # The latest output stays visible; executed commands are never recreated.
     command_results = [message for message in view if message.get("role") == "tool"
                        and call_names.get(message.get("tool_call_id")) == "run_command"]
@@ -54,16 +54,22 @@ def elide_tool_results(
         if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
             break
         content = str(message.get("content", ""))
-        if not content.startswith("status: ok\nexit_code: 0\n"):
+        header = content.splitlines()
+        locator = next((line for line in header[:4] if line.startswith("output_id: ")), "")
+        legacy_success = content.startswith("status: ok\nexit_code: 0\n")
+        if len(header) < 2 or not header[1].startswith("exit_code: ") or not (locator or legacy_success):
             continue
         raw_output = content.split("\n", 2)[2]
         marker = (
-            "status: elided\ntool: run_command\nexit_code: 0\n"
+            "status: elided\ntool: run_command\n" + header[1] + "\n"
+            + "original_" + header[0] + "\n"
+            + (locator + "\n" if locator else "") +
             f"result_chars: {len(content)}\nresult_sha256: {sha256(content.encode('utf-8')).hexdigest()}\n"
             "Raw output prefix (not a summary):\n" + raw_output[:240] +
             "\n[... middle omitted ...]\nRaw output suffix (not a summary):\n" + raw_output[-240:] +
-            "\nThe full result remains in the session. Do not rerun this command merely to recover "
-            "omitted output; inspect current files or use a new safe check."
+            "\nDo not rerun this command merely to recover omitted output. "
+            + ("Use read_output with the output_id for the saved original."
+               if locator else "Only the captured result remains in the session; inspect current files if needed.")
         )
         if len(content) <= len(marker):
             continue
@@ -79,6 +85,10 @@ def elide_tool_results(
             "status: elided\nEarlier read result omitted from this model request to fit the context budget. "
             "The original is retained in the session. Read the source again if its details matter."
         )
+        if call_names.get(call_id) == "read_output":
+            locator = next((line for line in str(message.get("content", "")).splitlines()[:4]
+                            if line.startswith("output_id: ")), "")
+            marker = "status: elided\n" + locator + "\nSaved output page omitted. Use read_output to retrieve it again."
         if len(message.get("content", "")) <= len(marker):
             continue
         message["content"] = marker
