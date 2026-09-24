@@ -76,6 +76,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         events = [json.loads(line) for line in event_path.read_text(encoding="utf-8").splitlines()]
         tool_names = [event["name"] for event in events if event["kind"] == "tool_finished"]
         audits = [event for event in events if event["kind"] == "answer_audited"]
+        contexts = [event for event in events if event["kind"] == "context_built"]
         checked_references = audits[-1]["references"] if audits else []
         steps = [
             {
@@ -154,4 +155,9 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "answer_sources_supported": bool(checked_references) and not result.unsupported_references,
             "answer_retries": sum(event["kind"] == "answer_rejected" for event in events),
             "post_edit_reads_complete": not result.unrefreshed_paths,
+            "max_context_chars": max((event["characters"] for event in contexts), default=0),
+            "elided_read_outputs": sum(len(event.get("elided_read_calls", [])) for event in contexts),
+            "elided_command_outputs": sum(len(event.get("elided_command_calls", [])) for event in contexts),
+            "recovery_blocks": sum(event["kind"] == "tool_rejected" and
+                                   event.get("reason") == "recovery_inspection_required" for event in events),
         }

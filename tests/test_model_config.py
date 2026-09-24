@@ -5,7 +5,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cobalt.model import AnthropicMessages, ChatCompletions, ModelOutputError, from_config
+from cobalt.model import (
+    AnthropicMessages,
+    ChatCompletions,
+    ModelOutputError,
+    from_config,
+)
 from cobalt.model_config import PROVIDERS, read_env_file, resolve_config
 
 
@@ -50,9 +55,11 @@ class ProviderAdapterTests(unittest.TestCase):
             turn = adapter.complete([{"role": "user", "content": "read"}], [])
         self.assertEqual(turn.calls[0].arguments, {"path": "a.py"})
         reply["choices"][0]["finish_reason"] = "content_filter"
-        with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(reply).encode())):
-            with self.assertRaises(ModelOutputError):
-                adapter.complete([{"role": "user", "content": "read"}], [])
+        with (
+            patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(reply).encode())),
+            self.assertRaises(ModelOutputError),
+        ):
+            adapter.complete([{"role": "user", "content": "read"}], [])
 
     def test_openai_chat_tools_disable_reasoning(self):
         response = {"choices": [{"finish_reason": "stop", "message": {"content": "done"}}]}

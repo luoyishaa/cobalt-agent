@@ -23,10 +23,13 @@ python -m unittest discover -s tests -v
 ruff check src tests scripts benchmarks/fixtures
 ```
 
-Run the live set after configuring `DEEPSEEK_API_KEY`:
+Run the live set after filling a local `.env` (or setting the selected
+provider's key in the process environment):
 
 ```powershell
 python scripts/evaluate_live.py
+# Optional: repeat each fresh fixture independently to observe model variance.
+python scripts/evaluate_live.py --repeat 3
 ```
 
 Results appear as dated JSON files in `benchmarks/results/`. The fixture code,
@@ -146,9 +149,29 @@ success measurements.
 | Citation to an omitted read | `large.txt:1` passed the source audit even though that read result was absent from the last model request. | The citation was marked unsupported, and the final answer stayed `unverified` when the scripted model repeated it. |
 
 The first case preserves tool call/result pairing and records omitted call IDs
-in `context_built`. The second case is an explicit stop, not automatic
-recovery. The third case checks what the model could actually see rather than
+in `context_built`. At the time of that baseline, the second case stopped
+explicitly. The third case checks what the model could actually see rather than
 every read that happened earlier in the run. The 48,000-character limit is a
 local heuristic; it does not equal the provider's token limit. A real-model
 evaluation must measure task success, retries, latency, and token use after
 this view transformation.
+
+## Fault-injection iteration: command output and recovery
+
+These checks exercise `Agent.ask` and session resume with a scripted model and
+real local tool effects. Each new test was run against the preceding behavior
+before the corresponding change. The failures below are observed outcomes,
+not estimates of how often a live model fails.
+
+| Fault | Before | After | Contract checked |
+| --- | --- | --- | --- |
+| Five commands each print about 12,000 characters | `context_limit`; no second model request | `completed`; second request fits 48,000 characters | Old successful output is omitted only from the model view, with exit code, length and digest retained. The full output stays in the session; each command executes once. |
+| Command increments a file, then the process stops before recording its reply | Immediate model retry increments it again: `1 → 2` | Retry denied; file remains `1` | Effectful tools wait for a successful inspection that the model can see. |
+| Model requests inspection and a write in the same batch | Write executes before the model sees inspection: `1 → 2` | Write denied; file remains `1` | A tool result cannot authorize another call from the same model response. |
+| Process stops again after inspection was stored, but the next model context omits it | Recovery barrier cleared from transcript alone | Write remains denied | Resolution depends on what the model request actually contained, not merely what the session stored. |
+
+The recovery barrier is persisted separately from the transcript, and run
+events record denied actions and omitted outputs. It prevents blind replay; it
+does not prove that a later inspection covers every possible effect of an
+arbitrary external command. The command still requires the normal tool gate
+approval when it is allowed again.

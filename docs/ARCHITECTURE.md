@@ -48,8 +48,9 @@ CLI
 
 The `Agent` module has one public operation, `ask`. It hides turn bookkeeping,
 limits, tool result feedback, and completion rules. `Workspace` owns the file
-and command rules. `Model` is the external seam: the first adapter speaks the
-DeepSeek chat-completions protocol. A scripted adapter is used in tests.
+and command rules. `Model` is the external seam: Chat-compatible providers
+share one adapter, while Claude uses a Messages adapter. Scripted adapters are
+used in runtime tests.
 
 The session file supports continuing a conversation after a new CLI process
 starts. The context selector drops only complete older user turns, so no tool
@@ -65,16 +66,23 @@ When the current user turn alone exceeds the character budget, the model view
 may replace older results from repeatable read tools with explicit omission
 markers. The complete results stay in the session, and tool call/result pairs
 remain intact. Final source references count only reads whose contents were
-visible in the last model request. Command outputs and write results are not
-discarded to force a fit; if the request remains too large, the run stops with
-`context_limit` before calling the model. This is a bounded character policy,
+visible in the last model request. Older successful command outputs can also
+be replaced in the model view with an exit code, output length, digest, and
+explicit omission warning. The latest command output stays visible; the full
+output remains in the session. Failed command output and write results stay
+visible. If the request remains too large, the run stops with `context_limit`
+before calling the model. This is a bounded character policy,
 not a provider token count or a semantic compaction system.
 
 The runtime saves the user request and the model's tool-call request before a
 tool runs, then saves after each tool reply. If a process stops between a tool
 request and its reply, resuming the session inserts an `interrupted` reply that
 says the effect is unknown. It never executes that call again automatically.
-The next request must inspect the workspace before claiming what happened.
+The next request must inspect the workspace before another effectful action.
+The runtime denies writes and commands until a successful read, list, or search
+result has been returned to the model. Inspection and a write requested in the
+same model turn do not clear this barrier. The barrier is reconstructed from
+the persisted transcript and its recorded resolution after another restart.
 This protects against a false "the tool failed" conclusion; it does not make
 an arbitrary external command transactional or guarantee exactly-once effects.
 

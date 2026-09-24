@@ -56,20 +56,28 @@ class AgentTests(unittest.TestCase):
                 6,
             )
 
-    def test_large_nonrepeatable_outputs_stop_before_an_oversized_model_request(self):
+    def test_large_command_outputs_keep_results_and_allow_the_run_to_finish(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
             calls = tuple(
                 ToolCall(f"command-{index}", "run_command", {
-                    "argv": [sys.executable, "-c", "print('x' * 12000)"],
+                    "argv": [sys.executable, "-c", f"from pathlib import Path; Path('effect-{index}').write_text('done'); print('x' * 12000)"],
                 })
                 for index in range(5)
             )
-            model = ScriptedModel([ModelTurn("", calls), ModelTurn("This should never be requested.")])
-            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Run the checks")
-            self.assertEqual(result.status, "context_limit")
-            self.assertEqual(len(model.seen), 1)
-            self.assertIn("context budget", result.answer)
+            model = ScriptedModel([ModelTurn("", calls), ModelTurn("The checks ran.")])
+            agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True))
+            result = agent.ask("Run the checks")
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(len(model.seen), 2)
+            self.assertLessEqual(len(json.dumps(model.seen[1], ensure_ascii=False)), DEFAULT_CONTEXT_BUDGET_CHARS)
+            results = [message for message in model.seen[1] if message["role"] == "tool"]
+            self.assertEqual(len(results), 5)
+            self.assertTrue(any(message["content"].startswith("status: elided") for message in results[:-1]))
+            self.assertIn("x" * 100, results[-1]["content"])
+            self.assertTrue(all((workspace.root / f"effect-{index}").read_text() == "done" for index in range(5)))
+            stored, _ = agent.sessions.load(agent.session_id)
+            self.assertEqual(sum("x" * 100 in message.get("content", "") for message in stored if message["role"] == "tool"), 5)
 
     def test_elided_read_cannot_support_a_final_source_reference(self):
         with tempfile.TemporaryDirectory() as directory:

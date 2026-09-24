@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from typing import Any
 
 from .workspace import Workspace
@@ -33,17 +34,18 @@ def select_recent_turns(
     return selected, len(groups) - len(chosen)
 
 
-def elide_old_read_results(
+def elide_tool_results(
     messages: list[dict[str, Any]], budget_chars: int = DEFAULT_CONTEXT_BUDGET_CHARS,
-) -> tuple[list[dict[str, Any]], list[str]]:
-    """Shrink only the model view of repeatable reads; keep protocol pairs intact."""
+) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    """Bound the model view without changing the durable transcript or tool pairing."""
     view = [dict(message) for message in messages]
     call_names = {
         call["id"]: call.get("function", {}).get("name")
         for message in view if message.get("role") == "assistant"
         for call in message.get("tool_calls") or [] if isinstance(call.get("id"), str)
     }
-    elided: list[str] = []
+    elided_reads: list[str] = []
+    elided_commands: list[str] = []
     for message in view:
         if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
             break
@@ -57,8 +59,28 @@ def elide_old_read_results(
         if len(message.get("content", "")) <= len(marker):
             continue
         message["content"] = marker
-        elided.append(call_id)
-    return view, elided
+        elided_reads.append(call_id)
+    # A successful command's exit status is durable evidence, but its stdout is
+    # not safe to recreate: the command may have changed external state.
+    command_results = [message for message in view if message.get("role") == "tool"
+                       and call_names.get(message.get("tool_call_id")) == "run_command"]
+    for message in command_results[:-1]:
+        if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
+            break
+        content = str(message.get("content", ""))
+        if not content.startswith("status: ok\nexit_code: 0\n"):
+            continue
+        marker = (
+            "status: elided\ntool: run_command\nexit_code: 0\n"
+            f"output_chars: {len(content)}\noutput_sha256: {sha256(content.encode('utf-8')).hexdigest()}\n"
+            "The full output remains in the session. It is not visible in this model request. "
+            "Do not rerun this command merely to recover its output; inspect current files or use a new safe check."
+        )
+        if len(content) <= len(marker):
+            continue
+        message["content"] = marker
+        elided_commands.append(message["tool_call_id"])
+    return view, elided_reads, elided_commands
 
 
 class EvidenceBook:

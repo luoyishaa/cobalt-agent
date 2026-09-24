@@ -1,4 +1,4 @@
-"""Run small, fresh-workspace DeepSeek tasks and save transparent metrics."""
+"""Run fresh-workspace coding tasks and save transparent per-attempt metrics."""
 
 from __future__ import annotations
 
@@ -9,16 +9,22 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cobalt.evaluation import run_case
-from cobalt.model import DeepSeek
+from cobalt.model import from_config
+from cobalt.model_config import resolve_config
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="deepseek-flash")
+    parser.add_argument("--provider", help="Override the local provider selection")
+    parser.add_argument("--model", help="Override the selected provider model")
+    parser.add_argument("--repeat", type=int, default=1, help="Independent attempts per case (1..10)")
     parser.add_argument("--case", action="append", help="Only run this case id; may be repeated")
     parser.add_argument("--allow-dirty", action="store_true", help="Run an exploratory check with uncommitted code")
     args = parser.parse_args()
+    if not 1 <= args.repeat <= 10:
+        parser.error("--repeat must be 1..10")
     root = Path(__file__).resolve().parents[1]
+    config = resolve_config(env_file=root / ".env", provider=args.provider, model=args.model)
     data = json.loads((root / "benchmarks" / "cases.json").read_text(encoding="utf-8"))
     cases = [case for case in data["cases"] if not args.case or case["id"] in args.case]
     if not cases:
@@ -31,11 +37,18 @@ def main() -> None:
         parser.error("cannot read Git working tree status")
     if dirty.stdout.strip() and not args.allow_dirty:
         parser.error("commit changes before a reproducible run, or use --allow-dirty for exploration")
-    rows = [run_case(case, root / "benchmarks", lambda: DeepSeek(model=args.model)) for case in cases]
+    rows = []
+    for case in cases:
+        for attempt in range(1, args.repeat + 1):
+            row = run_case(case, root / "benchmarks", lambda: from_config(config))
+            row["attempt"] = attempt
+            rows.append(row)
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=False)
     report = {
         "at": datetime.now(UTC).isoformat(),
-        "model": args.model,
+        "provider": config.provider,
+        "model": config.model,
+        "repeats_per_case": args.repeat,
         "commit": commit.stdout.strip() if commit.returncode == 0 else "uncommitted",
         "working_tree_dirty": bool(dirty.stdout.strip()),
         "case_count": len(rows),

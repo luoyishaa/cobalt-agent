@@ -10,13 +10,18 @@ from .answer_audit import ReadSpan, audit_source_references
 from .context import (
     DEFAULT_CONTEXT_BUDGET_CHARS,
     EvidenceBook,
-    elide_old_read_results,
+    elide_tool_results,
     select_recent_turns,
 )
-from .domain import ModelTurn, RunResult
+from .domain import ModelTurn, RunResult, ToolOutcome
 from .journal import Journal
 from .model import Model, ModelOutputError
-from .session import SessionStore, close_interrupted_calls
+from .session import (
+    SessionStore,
+    close_interrupted_calls,
+    recovery_inspection_call_ids,
+    uninspected_interrupted_calls,
+)
 from .tools import ToolGate
 from .workspace import Workspace
 
@@ -51,17 +56,19 @@ class Agent:
         self.sessions = SessionStore(workspace.root)
         self.session_id = resume or self.sessions.new_id()
         if resume:
-            self.messages, observations = self.sessions.load(resume)
+            self.messages, observations, self.recovery_resolved = self.sessions.load_state(resume)
             self.evidence = EvidenceBook(observations)
-            self.recovered_calls = close_interrupted_calls(self.messages)
-            if self.recovered_calls:
-                self.sessions.save(self.session_id, self.messages, self.evidence.observations)
+            newly_interrupted = close_interrupted_calls(self.messages)
+            self.recovered_calls = uninspected_interrupted_calls(self.messages, self.recovery_resolved)
+            if newly_interrupted:
+                self._save_session()
         else:
             self.messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM}]
             self.evidence = EvidenceBook()
             self.recovered_calls = []
+            self.recovery_resolved: set[str] = set()
 
-    def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int, list[str]]:
+    def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
         selected, dropped = select_recent_turns(self.messages)
         evidence = self.evidence.context(self.workspace)
         selected[0] = {
@@ -75,11 +82,12 @@ class Agent:
             )
             + ("\n" + retry_hint if retry_hint else ""),
         }
-        view, elided = elide_old_read_results(selected)
-        return view, dropped, elided
+        view, elided_reads, elided_commands = elide_tool_results(selected)
+        return view, dropped, elided_reads, elided_commands
 
     def _save_session(self) -> None:
-        self.sessions.save(self.session_id, self.messages, self.evidence.observations)
+        self.sessions.save(self.session_id, self.messages, self.evidence.observations,
+                           recovery_resolved=self.recovery_resolved)
 
     def ask(self, question: str) -> RunResult:
         if not question.strip():
@@ -105,13 +113,13 @@ class Agent:
         retry_hint = ""
         while calls_used < self.max_tool_calls:
             try:
-                prompt_messages, dropped, elided = self._model_context(retry_hint)
+                prompt_messages, dropped, elided_reads, elided_commands = self._model_context(retry_hint)
                 context_chars = len(json.dumps(prompt_messages, ensure_ascii=False))
                 journal.add(
                     "context_built", dropped_turns=dropped, characters=context_chars,
                     budget_chars=DEFAULT_CONTEXT_BUDGET_CHARS,
                     over_budget=context_chars > DEFAULT_CONTEXT_BUDGET_CHARS,
-                    elided_read_calls=elided,
+                    elided_read_calls=elided_reads, elided_command_calls=elided_commands,
                 )
                 if context_chars > DEFAULT_CONTEXT_BUDGET_CHARS:
                     result = RunResult(
@@ -152,6 +160,16 @@ class Agent:
                 return result
             prompt_tokens += turn.prompt_tokens or 0
             completion_tokens += turn.completion_tokens or 0
+            if self.recovered_calls:
+                candidates = recovery_inspection_call_ids(self.messages, self.recovered_calls)
+                visible = {message.get("tool_call_id") for message in prompt_messages
+                           if message.get("role") == "tool" and
+                           not str(message.get("content", "")).startswith("status: elided\n")}
+                if candidates & visible:
+                    journal.add("recovery_inspected", interrupted_call_ids=self.recovered_calls)
+                    self.recovery_resolved.update(self.recovered_calls)
+                    self.recovered_calls = []
+                    self._save_session()
             journal.add(
                 "model_responded", tool_names=[call.name for call in turn.calls],
                 prompt_tokens=turn.prompt_tokens, completion_tokens=turn.completion_tokens,
@@ -225,6 +243,7 @@ class Agent:
             })
             # Commit the request before any tool can cause an external effect.
             self._save_session()
+            recovery_pending_for_turn = bool(self.recovered_calls)
             for call in turn.calls:
                 if calls_used >= self.max_tool_calls:
                     # The model protocol still needs a result for every call in its turn.
@@ -233,7 +252,14 @@ class Agent:
                 else:
                     calls_used += 1
                     journal.add("tool_started", call_id=call.call_id, name=call.name, args=call.arguments)
-                    outcome = self.tools.execute(call.name, call.arguments)
+                    if recovery_pending_for_turn and call.name in {"replace_text", "create_file", "run_command"}:
+                        outcome = ToolOutcome(
+                            "denied", "An interrupted tool may already have acted. Inspect the workspace with "
+                            "read_file, list_files, or search before another effectful action."
+                        )
+                        journal.add("tool_rejected", name=call.name, reason="recovery_inspection_required")
+                    else:
+                        outcome = self.tools.execute(call.name, call.arguments)
                     outcome_text = outcome.to_message()
                     journal.add(
                         "tool_finished", name=call.name, args=call.arguments,

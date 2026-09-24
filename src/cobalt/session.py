@@ -33,6 +33,30 @@ def close_interrupted_calls(messages: list[dict[str, Any]]) -> list[str]:
     return list(pending)
 
 
+def uninspected_interrupted_calls(messages: list[dict[str, Any]], resolved: set[str]) -> list[str]:
+    """An inspection counts only after its result was visible to a model turn."""
+    return sorted({message["tool_call_id"] for message in messages
+                   if message.get("role") == "tool"
+                   and str(message.get("content", "")).startswith("status: interrupted\n")
+                   and message.get("tool_call_id") not in resolved})
+
+
+def recovery_inspection_call_ids(messages: list[dict[str, Any]], unresolved: list[str]) -> set[str]:
+    if not unresolved:
+        return set()
+    names = {call["id"]: call.get("function", {}).get("name", "")
+             for message in messages if message.get("role") == "assistant"
+             for call in message.get("tool_calls") or []}
+    last_interrupt = max(index for index, message in enumerate(messages)
+                         if message.get("role") == "tool" and
+                         message.get("tool_call_id") in unresolved and
+                         str(message.get("content", "")).startswith("status: interrupted\n"))
+    return {message["tool_call_id"] for message in messages[last_interrupt + 1:]
+            if message.get("role") == "tool" and
+            str(message.get("content", "")).startswith("status: ok\n") and
+            names.get(message.get("tool_call_id")) in {"list_files", "read_file", "search"}}
+
+
 class SessionStore:
     def __init__(self, root: Path):
         self.root = root.resolve()
@@ -42,7 +66,8 @@ class SessionStore:
     def new_id(self) -> str:
         return "session-" + uuid.uuid4().hex[:12]
 
-    def save(self, session_id: str, messages: list[dict[str, Any]], observations: dict) -> Path:
+    def save(self, session_id: str, messages: list[dict[str, Any]], observations: dict,
+             *, recovery_resolved: set[str] | None = None) -> Path:
         if not session_id.startswith("session-") or not session_id[8:].isalnum():
             raise ValueError("invalid session id")
         data = {
@@ -50,6 +75,7 @@ class SessionStore:
             "workspace": str(self.root),
             "messages": messages,
             "observations": observations,
+            "recovery_resolved": sorted(recovery_resolved or set()),
         }
         target = self.directory / (session_id + ".json")
         fd, temporary = tempfile.mkstemp(dir=self.directory, prefix=".session-")
@@ -65,6 +91,10 @@ class SessionStore:
         return target
 
     def load(self, session_id: str) -> tuple[list[dict[str, Any]], dict]:
+        messages, observations, _ = self.load_state(session_id)
+        return messages, observations
+
+    def load_state(self, session_id: str) -> tuple[list[dict[str, Any]], dict, set[str]]:
         if not session_id.startswith("session-") or not session_id[8:].isalnum():
             raise ValueError("invalid session id")
         path = self.directory / (session_id + ".json")
@@ -73,9 +103,11 @@ class SessionStore:
             raise ValueError("session schema or workspace does not match")
         messages = data.get("messages")
         observations = data.get("observations")
-        if not isinstance(messages, list) or not isinstance(observations, dict):
+        resolved = data.get("recovery_resolved", [])
+        if (not isinstance(messages, list) or not isinstance(observations, dict)
+                or not isinstance(resolved, list) or any(not isinstance(item, str) for item in resolved)):
             raise TypeError("invalid session contents")
-        return messages, observations
+        return messages, observations, set(resolved)
 
     def latest(self) -> str | None:
         files = sorted(self.directory.glob("session-*.json"), key=lambda item: item.stat().st_mtime, reverse=True)
