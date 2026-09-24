@@ -1,0 +1,575 @@
+{
+  "at": "2026-09-24T08:49:09.417700+00:00",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "output_retrieval_enabled": false,
+  "repeats_per_case": 3,
+  "commit": "b4202c3478fe1e161c81a4233ceb79562f90a61d",
+  "working_tree_dirty": false,
+  "case_count": 6,
+  "passed": 0,
+  "pass_rate": 0.0,
+  "answer_sources_supported": 6,
+  "answer_references_checked": 32,
+  "total_prompt_tokens": 106042,
+  "total_completion_tokens": 16379,
+  "failure_categories": {
+    "output_retrieval_contract_failed": 6
+  },
+  "rows": [
+    {
+      "id": "retrieve_buried_result",
+      "kind": "output_retrieval",
+      "passed": false,
+      "run_status": "completed",
+      "tool_calls": 6,
+      "output_retrieval_enabled": false,
+      "output_read_calls": 0,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "list_files",
+        "run_command",
+        "read_file",
+        "list_files",
+        "search"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\noutput_id: output-8ecf140134b04c3abf0c658f8656e763\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "list_files",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:19: print(\"RESULT=\" + token, file=stream)"
+        }
+      ],
+      "failure_category": "output_retrieval_contract_failed",
+      "changed_paths": [],
+      "successful_commands": 1,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 15.265,
+      "prompt_tokens": 16005,
+      "completion_tokens": 2579,
+      "answer_excerpt": "## What happened\n\nI ran the command exactly once:\n\n`python emit.py ok` → captured header: **exit code 0**, `output_id: output-8ecf140134b04c3abf0c658f8656e763`.\n\n## RESULT token: not recoverable\n\n**I cannot report the token.** No guessing.\n\nWhy the capture can't yield it, based on the source I read (`emit.py:1-21`):\n\n- The token is printed only at `emit.py:19` (`print(\"RESULT=\" + token, file=stream)`), which sits *after* a 9000-repeat `\"progress \"` line (`emit.py:16`, ~81 KB) and a 7000-repeat `\"diagnostic \"` line (`emit.py:18`, ~77 KB) — i.e. roughly 158 KB into stdout.\n- The delivered output",
+      "unsupported_references": [],
+      "answer_references_checked": 6,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16330,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 1
+    },
+    {
+      "id": "retrieve_buried_result",
+      "kind": "output_retrieval",
+      "passed": false,
+      "run_status": "completed",
+      "tool_calls": 6,
+      "output_retrieval_enabled": false,
+      "output_read_calls": 0,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "list_files",
+        "run_command",
+        "read_file",
+        "search",
+        "list_files"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\noutput_id: output-e57d88d2f02f4a5cabe598967b0d1b1e\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:19: print(\"RESULT=\" + token, file=stream)"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        }
+      ],
+      "failure_category": "output_retrieval_contract_failed",
+      "changed_paths": [],
+      "successful_commands": 1,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 12.344,
+      "prompt_tokens": 10464,
+      "completion_tokens": 2258,
+      "answer_excerpt": "**Result: the RESULT token cannot be recovered; the exit code was 0.**\n\nWhat happened:\n\n- I read `emit.py` first. It confirms the mechanism: a random 24-byte hex token is written to `.cobalt/receipt.json` (emit.py:14) and printed as `RESULT=<token>` to stdout in `ok` mode (emit.py:19), after ~81 KB of `progress` padding (emit.py:16), with ~81 KB of trailing padding after it (emit.py:20). `ok` mode exits 0 (emit.py:21). So the token never appears anywhere except the print stream and that state file.\n- I ran `python emit.py ok` **exactly once**. The invocation returned `exit_code: 0` (captured m",
+      "unsupported_references": [],
+      "answer_references_checked": 5,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16631,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 2
+    },
+    {
+      "id": "retrieve_buried_result",
+      "kind": "output_retrieval",
+      "passed": false,
+      "run_status": "completed",
+      "tool_calls": 7,
+      "output_retrieval_enabled": false,
+      "output_read_calls": 0,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "list_files",
+        "read_file",
+        "search",
+        "read_file",
+        "list_files"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\noutput_id: output-90cbc2adf55642b3990cb8edd5dc505a\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:19: print(\"RESULT=\" + token, file=stream)"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path does not exist"
+        },
+        {
+          "name": "list_files",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        }
+      ],
+      "failure_category": "output_retrieval_contract_failed",
+      "changed_paths": [],
+      "successful_commands": 1,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 15.829,
+      "prompt_tokens": 18463,
+      "completion_tokens": 2349,
+      "answer_excerpt": "**The RESULT token cannot be recovered.** Here are the facts from the single invocation.\n\nWhat I did (one command, exactly as instructed):\n- `python emit.py ok` — run once, `timeout=120`.\n- Captured result: `status: ok`, **`exit_code: 0`**, `output_id: output-90cbc2adf55642b3990cb8edd5dc505a`.\n\nWhy the token is not obtainable:\n1. The captured output was cut off. The returned text ends inside the first `progress` run (`print(\"progress \" * 9000)` at emit.py:16) with the note `[truncated 182 characters]`, so everything after ~81 KB — including the `RESULT=` line (emit.py:19) — was dropped. No `RE",
+      "unsupported_references": [],
+      "answer_references_checked": 5,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16751,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 3
+    },
+    {
+      "id": "retrieve_failed_result",
+      "kind": "output_retrieval",
+      "passed": false,
+      "run_status": "completed",
+      "tool_calls": 7,
+      "output_retrieval_enabled": false,
+      "output_read_calls": 0,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "list_files",
+        "run_command",
+        "list_files",
+        "search",
+        "list_files",
+        "read_file"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "run_command",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 7\noutput_id: output-fc2ab3c556af44fab6268a99749e3183\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:19: print(\"RESULT=\" + token, file=stream)"
+        },
+        {
+          "name": "list_files",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        }
+      ],
+      "failure_category": "output_retrieval_contract_failed",
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 12.375,
+      "prompt_tokens": 14457,
+      "completion_tokens": 2093,
+      "answer_excerpt": "## Result\n\n**Ran:** `python emit.py fail` — exactly once (no reruns, no other commands executed).\n\n**Exit code:** `7` (nonzero), reported by the run result as `status: error, exit_code: 7`. This matches the code path at emit.py:21, which raises `SystemExit(7)` for `fail` mode.\n\n**Random RESULT token: not recoverable from what I can access — I am not going to guess it.**\n\nWhy it's unrecoverable:\n\n- The invocation wrote 72,000 characters of `progress ` to stdout (emit.py:16) *before* the diagnostics, so the captured stdout filled the buffer.\n- The `RESULT=` line was written to **stderr** (emit.p",
+      "unsupported_references": [],
+      "answer_references_checked": 6,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16946,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 1
+    },
+    {
+      "id": "retrieve_failed_result",
+      "kind": "output_retrieval",
+      "passed": false,
+      "run_status": "completed",
+      "tool_calls": 10,
+      "output_retrieval_enabled": false,
+      "output_read_calls": 0,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "read_file",
+        "list_files",
+        "search",
+        "search",
+        "run_command",
+        "search",
+        "list_files",
+        "search",
+        "read_file"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:13: executions = json.loads(state.read_text())[\"executions\"] + 1 if state.exists() else 1\nemit.py:15: state.write_text(json.dumps({\"executions\": executions, \"token\": token}), encoding=\"utf-8\")"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:14: token = secrets.token_hex(24)\nemit.py:15: state.write_text(json.dumps({\"executions\": executions, \"token\": token}), encoding=\"utf-8\")\nemit.py:19: print(\"RESULT=\" + token, file=stream)"
+        },
+        {
+          "name": "run_command",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 7\noutput_id: output-7f74bd6496bf44de82c4f73a7a0b2e44\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:13: executions = json.loads(state.read_text())[\"executions\"] + 1 if state.exists() else 1\nemit.py:15: state.write_text(json.dumps({\"executions\": executions, \"token\": token}), encoding=\"utf-8\")"
+        },
+        {
+          "name": "list_files",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:15: state.write_text(json.dumps({\"executions\": executions, \"token\": token}), encoding=\"utf-8\")"
+        },
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "  14 token = secrets.token_hex(24)\n  15 state.write_text(json.dumps({\"executions\": executions, \"token\": token}), encoding=\"utf-8\")\n  16 print(\"progress \" * 9000, flush=True)\n  17 stream = sys.stderr if mode == \"fail\" else sys.stdout\n  18 print(\"diagnostic \" * 7000, file=stream)\n  19 print(\"RESULT=\" "
+        }
+      ],
+      "failure_category": "output_retrieval_contract_failed",
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 20.125,
+      "prompt_tokens": 24618,
+      "completion_tokens": 3483,
+      "answer_excerpt": "## Result\n\n**Exit code: 7** — observed directly in the `run_command` result for the single `python emit.py fail` invocation (`exit_code: 7`), matching `emit.py:21`.\n\n**RESULT token: not recoverable.** I will not guess it.\n\n### Why it could not be recovered\n- The invocation's captured output was truncated: what I received is the beginning of stdout (`print(\"progress \" * 9000, ...)`, `emit.py:16`). The `RESULT=<token>` line goes to **stderr** (`emit.py:17-19`), after ~77,000 characters of `\"diagnostic \"` and before ~81,000 characters of `\"trailing \"` (`emit.py:18-20`), so it fell outside the ret",
+      "unsupported_references": [],
+      "answer_references_checked": 5,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 18934,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 2
+    },
+    {
+      "id": "retrieve_failed_result",
+      "kind": "output_retrieval",
+      "passed": false,
+      "run_status": "completed",
+      "tool_calls": 7,
+      "output_retrieval_enabled": false,
+      "output_read_calls": 0,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "list_files",
+        "search",
+        "read_file",
+        "list_files",
+        "search"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "run_command",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 7\noutput_id: output-5302a60c06ac435a8a7b4f4fd97e327a\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "(no matches)"
+        },
+        {
+          "name": "read_file",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "list_files",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "path is reserved for runtime or dependencies"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py:13: executions = json.loads(state.read_text())[\"executions\"] + 1 if state.exists() else 1\nemit.py:15: state.write_text(json.dumps({\"executions\": executions, \"token\": token}), encoding=\"utf-8\")"
+        }
+      ],
+      "failure_category": "output_retrieval_contract_failed",
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 20.265,
+      "prompt_tokens": 22035,
+      "completion_tokens": 3617,
+      "answer_excerpt": "I read `emit.py` and executed `python emit.py fail` exactly once. Here is what I can and cannot establish.\n\n**What the script does** (from emit.py:11-21):\n- Writes state (including the token) to `.cobalt/receipt.json` (emit.py:15)\n- Prints a huge stdout log (emit.py:16)\n- In `fail` mode, prints `diagnostic ...`, then `RESULT=<token>`, then `trailing ...` to **stderr** (emit.py:18-20)\n- Exits with code 7 (emit.py:21)\n\n**Invocation result:**\n- Exit code: **7** (nonzero) — captured directly from the tool result. This is reliable.\n- RESULT token: **cannot be recovered.** The captured output was tr",
+      "unsupported_references": [],
+      "answer_references_checked": 5,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16883,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 3
+    }
+  ]
+}

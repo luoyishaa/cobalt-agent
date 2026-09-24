@@ -108,6 +108,9 @@ class EvaluationTests(unittest.TestCase):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
 
         class LookupModel:
+            def __init__(self, offset=None):
+                self.offset = offset
+
             def complete(self, messages, tools):
                 last = messages[-1]
                 if last["role"] == "user":
@@ -116,13 +119,17 @@ class EvaluationTests(unittest.TestCase):
                     return ModelTurn("", (ToolCall("emit", "run_command", {"argv": [sys.executable, "emit.py", "ok"]}),))
                 if last.get("tool_call_id") == "emit":
                     output_id = re.search(r"output_id: (output-[a-f0-9]{32})", last["content"])[1]
-                    return ModelTurn("", (ToolCall("lookup", "read_output", {"output_id": output_id, "query": "RESULT=", "limit": 100}),))
+                    args = {"output_id": output_id, "query": "RESULT=", "limit": 100} if self.offset is None else {
+                        "output_id": output_id, "offset": self.offset, "limit": 8000,
+                    }
+                    return ModelTurn("", (ToolCall("lookup", "read_output", args),))
                 token = re.search(r"RESULT=([a-f0-9]{48})", last["content"])[1]
                 return ModelTurn(f"RESULT={token}; exit_code: 0")
 
         case = {"id": "retrieve", "kind": "output_retrieval", "fixture": "fixtures/output_retrieval",
                 "request": "Run once and recover RESULT", "required_argv": ["emit.py", "ok"], "expected_exit": 0}
         self.assertTrue(run_case(case, fixtures, LookupModel)["passed"])
+        self.assertTrue(run_case(case, fixtures, lambda: LookupModel(155000))["passed"])
         self.assertFalse(run_case(case, fixtures, AnswerOnlyModel)["passed"])
 
     def test_workflow_case_requires_actual_stage_commands(self):

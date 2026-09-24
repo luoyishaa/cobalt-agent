@@ -262,3 +262,29 @@ effect, after the effect but before the reply is saved, and after reply saving.
 The first two retain a recovery barrier; archive reads alone cannot clear it.
 This tests process termination at signaled boundaries, not power loss or every
 possible scheduling interleaving.
+
+On clean commit `b4202c3478fe1e161c81a4233ceb79562f90a61d`, DeepSeek
+`deepseek-flash` ran each retrieval case three times per arm:
+
+| Read tool | Passed | Command effects | Tool calls | Prompt tokens | Completion tokens | Sum of task seconds |
+| --- | --- | --- | --- | --- | --- | --- |
+| Disabled | 0/6 | 6 | 43 | 106,042 | 16,379 | 96.203 |
+| Enabled | 6/6 | 6 | 20 | 59,056 | 4,622 | 36.609 |
+
+The disabled arm reported inability to recover the random token; it did not
+repeat the effectful command. The enabled arm used one archive read per attempt,
+including the nonzero-exit stderr case. Both arms started on the same clean
+commit and ran concurrently; timing is observational and may include service
+load effects. Reports are `benchmarks/results/live-20260924-084909.json`
+(disabled) and `benchmarks/results/live-20260924-084809.json` (enabled).
+These deliberately retrieval-dependent tasks show capability availability,
+not broad coding quality or an estimated general success probability.
+
+Passing validates the specified token/effect contract, not every sentence of
+the model's answer. One passing answer said no files were modified even though
+the command wrote its receipt; source-reference checks do not establish semantic
+truth. Subsequent deterministic checks also found two boundary errors: archive
+publication failure hid an already-completed command's exit code, and grading
+from a journal excerpt rejected valid tokens later in a retrieved page. The
+runtime now reports the actual command exit alongside an archive warning; the
+grader inspects complete tool replies rather than journal excerpts.

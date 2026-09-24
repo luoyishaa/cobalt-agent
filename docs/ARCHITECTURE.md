@@ -96,6 +96,9 @@ Search and integrity verification use bounded memory but scan the archive;
 there is no search index, disk quota, automatic retention cleanup, or protection
 against a malicious local command modifying both data and metadata. Archives
 are workspace-scoped, not isolated between sessions or users.
+If archive publication fails after a command completes, the reply preserves
+the actual exit code and reports the storage failure separately. It provides
+no output ID and warns that only the bounded preview is available.
 
 The runtime saves the user request and the model's tool-call request before a
 tool runs, then saves after each tool reply. If a process stops between a tool

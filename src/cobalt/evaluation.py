@@ -124,10 +124,17 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             command_matches = (len(commands) == 1 and commands[0]["args"].get("argv", [])[1:] == case["required_argv"])
             command_output = commands[0].get("output", "") if command_matches else ""
             locator = re.search(r"output_id: (output-[a-f0-9]{32})", command_output)
+            # The event journal contains excerpts; grade the actual tool reply seen by the model.
+            retrieval_ids = {
+                call["id"] for message in agent.messages if message.get("role") == "assistant"
+                for call in message.get("tool_calls") or []
+                if call["function"]["name"] == "read_output" and locator
+                and json.loads(call["function"]["arguments"]).get("output_id") == locator[1]
+            }
             retrieved = bool(locator and token) and any(
-                event["kind"] == "tool_finished" and event["name"] == "read_output" and event["status"] == "ok"
-                and event["args"].get("output_id") == locator[1] and "RESULT=" + token in event.get("output", "")
-                for event in events
+                message.get("role") == "tool" and message.get("tool_call_id") in retrieval_ids
+                and message["content"].startswith("status: ok\n") and "RESULT=" + token in message["content"]
+                for message in agent.messages
             )
             fixture_unchanged = (workspace_path / "emit.py").read_bytes() == (source / "emit.py").read_bytes()
             passed = bool(result.status == "completed" and executions == 1 and command_matches and retrieved

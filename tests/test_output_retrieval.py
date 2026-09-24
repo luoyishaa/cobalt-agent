@@ -11,6 +11,20 @@ from cobalt.workspace import Workspace
 
 
 class OutputRetrievalTests(unittest.TestCase):
+    def test_archive_failure_does_not_hide_that_command_already_ran(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".cobalt").mkdir()
+            (root / ".cobalt" / "outputs").write_text("blocked storage", encoding="utf-8")
+            gate = ToolGate(Workspace(root), lambda _n, _a: True)
+            outcome = gate.execute("run_command", {"argv": [sys.executable, "-c",
+                "from pathlib import Path; Path('effect').write_text('done'); print('PASS')"]})
+            self.assertEqual((root / "effect").read_text(), "done")
+            self.assertIn("exit_code: 0", outcome.message)
+            self.assertIn("archive unavailable", outcome.message)
+            self.assertIn("Do not rerun", outcome.message)
+            self.assertNotIn("output_id:", outcome.message)
+
     def test_failed_and_timed_out_commands_keep_searchable_stderr(self):
         with tempfile.TemporaryDirectory() as directory:
             gate = ToolGate(Workspace(Path(directory)), lambda _n, _a: True)

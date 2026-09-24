@@ -200,7 +200,18 @@ class Workspace:
             except subprocess.TimeoutExpired:
                 self._stop_process_tree(proc)
                 timed_out = True
-            output_id = OutputStore(self.root).save(stdout, stderr, exit_code=proc.returncode, timed_out=timed_out)
+            try:
+                output_id = OutputStore(self.root).save(stdout, stderr, exit_code=proc.returncode, timed_out=timed_out)
+                archive_notice = (
+                    f"output_id: {output_id}\n"
+                    "Use read_output with this ID to search or page through the original output; do not rerun for logs.\n"
+                )
+            except (OSError, ValueError) as exc:
+                # A storage failure happens after the effect; preserve the actual command outcome.
+                archive_notice = (
+                    f"output archive unavailable ({type(exc).__name__}). Command already finished. "
+                    "Do not rerun merely to recover logs; only the following bounded preview is available.\n"
+                )
             stdout.seek(0)
             stderr.seek(0)
             combined = stdout.read(MAX_OUTPUT_CHARS + 1) + b"\n" + stderr.read(MAX_OUTPUT_CHARS + 1)
@@ -208,8 +219,7 @@ class Workspace:
             if len(combined) > MAX_OUTPUT_CHARS:
                 output += "\n[output truncated]"
             message = (
-                f"exit_code: {proc.returncode}\noutput_id: {output_id}\n"
-                "Use read_output with this ID to search or page through the original output; do not rerun for logs.\n"
+                f"exit_code: {proc.returncode}\n" + archive_notice
                 + (f"command timed out after {timeout}s\n" if timed_out else "")
                 + (output or "(no output)")
             )

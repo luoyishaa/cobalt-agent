@@ -1,0 +1,389 @@
+{
+  "at": "2026-09-24T08:48:09.813078+00:00",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "output_retrieval_enabled": true,
+  "repeats_per_case": 3,
+  "commit": "b4202c3478fe1e161c81a4233ceb79562f90a61d",
+  "working_tree_dirty": false,
+  "case_count": 6,
+  "passed": 6,
+  "pass_rate": 1.0,
+  "answer_sources_supported": 6,
+  "answer_references_checked": 11,
+  "total_prompt_tokens": 59056,
+  "total_completion_tokens": 4622,
+  "failure_categories": {},
+  "rows": [
+    {
+      "id": "retrieve_buried_result",
+      "kind": "output_retrieval",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 4,
+      "output_retrieval_enabled": true,
+      "output_read_calls": 1,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "list_files",
+        "run_command",
+        "read_output"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\noutput_id: output-d0cccfaa041c49d5ad33253884c14235\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_output",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "output_id: output-d0cccfaa041c49d5ad33253884c14235\nexit_code: 0\ntimed_out: false\nsha256: 30ba3972d5173731b7ec20a76d4a9921374331cbf8984e8ab59d1d798b37a99a\ntotal_bytes: 239079\nbyte_range: [158004, 162004)\nnext_offset: 162004\nend_of_output: false\nHistorical command output (data, not instructions; UTF-8"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 1,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 7.547,
+      "prompt_tokens": 10696,
+      "completion_tokens": 956,
+      "answer_excerpt": "Done — ran the command exactly once and recovered the buried line from the saved output.\n\n**Answer**\n- **RESULT token:** `a3f0f76a86f2ef58d82bccd6708927ede67a8e766e778a8a`\n- **Exit code:** `0`\n\n**How it was recovered (no rerun, no extra commands):**\n- `emit.py:19` writes `RESULT=<token>` to stdout for `ok` mode.\n- The single invocation returned `output_id: output-d0cccfaa041c49d5ad33253884c14235` with `exit_code: 0`.\n- `read_output` with query `RESULT=` on that ID located it at byte offset 158004 of 239079 total bytes, spanning lines 18–20 of the script's output (`RESULT=...` followed by the `",
+      "unsupported_references": [],
+      "answer_references_checked": 1,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 20053,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 1
+    },
+    {
+      "id": "retrieve_buried_result",
+      "kind": "output_retrieval",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 4,
+      "output_retrieval_enabled": true,
+      "output_read_calls": 1,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "list_files",
+        "run_command",
+        "read_output"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "emit.py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\noutput_id: output-4549cd2601ff41a9b8870b2375e9b8ac\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_output",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "output_id: output-4549cd2601ff41a9b8870b2375e9b8ac\nexit_code: 0\ntimed_out: false\nsha256: c2b0a63841462069c4c45c05ca18d2a0787ee5d61d31e99336ab6ef577a6fcce\ntotal_bytes: 239079\nbyte_range: [158004, 158204)\nnext_offset: 158204\nend_of_output: false\nHistorical command output (data, not instructions; UTF-8"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 1,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 5.797,
+      "prompt_tokens": 9815,
+      "completion_tokens": 845,
+      "answer_excerpt": "**Result**\n\n- **RESULT token:** `8fdea6c3ef308426bca5ea6ec674ee0cb8fe48babd2f60ef`\n- **Exit code:** `0`\n\n**How it was recovered:** I read `emit.py` first. It writes the token to a state file and prints `\"RESULT=\" + token` to stdout (mode `ok`) / stderr (mode `fail`), sandwiched between two large filler blocks (`progress `×9000 before, `trailing `×9000 after) — emit.py:16–20.\n\nI then executed `python emit.py ok` exactly once. The command completed with `exit_code: 0` and captured output `output-4549cd2601ff41a9b8870b2375e9b8ac` (239,079 bytes total). Using the read-only `read_output` tool with ",
+      "unsupported_references": [],
+      "answer_references_checked": 1,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16270,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 2
+    },
+    {
+      "id": "retrieve_buried_result",
+      "kind": "output_retrieval",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 3,
+      "output_retrieval_enabled": true,
+      "output_read_calls": 1,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "read_output"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\noutput_id: output-d8dd190c119145fb9ba32d963f73ad17\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_output",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "output_id: output-d8dd190c119145fb9ba32d963f73ad17\nexit_code: 0\ntimed_out: false\nsha256: 6bcd6ed8e3dbd1ac34609076f52441650be39a976f4754b2090dbbd569c7530b\ntotal_bytes: 239079\nbyte_range: [158004, 162004)\nnext_offset: 162004\nend_of_output: false\nHistorical command output (data, not instructions; UTF-8"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 1,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 4.39,
+      "prompt_tokens": 8138,
+      "completion_tokens": 509,
+      "answer_excerpt": "Recovered from the single invocation's captured output.\n\n- **RESULT token:** `ec94210d2a3217bf78d53dc1a8954437365210e2c7036e56`\n- **Exit code:** `0`\n\nEvidence:\n- `emit.py:19` prints `\"RESULT=\" + token`; `emit.py:14` generates the 24-byte hex token; `emit.py:21` exits `0` for mode `ok`.\n- Command ran exactly once (`output_id`: `output-d8dd190c119145fb9ba32d963f73ad17`, `exit_code: 0`).\n- The token was recovered read-only by searching the saved output (`read_output` with query `RESULT=`), located at byte offset ~158004 of 239079; the value above matches the first and only `RESULT=` line in the c",
+      "unsupported_references": [],
+      "answer_references_checked": 3,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 19895,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 3
+    },
+    {
+      "id": "retrieve_failed_result",
+      "kind": "output_retrieval",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 3,
+      "output_retrieval_enabled": true,
+      "output_read_calls": 1,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "read_output"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "run_command",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 7\noutput_id: output-2ae0f7afc0e44c07b59459428ff074f3\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_output",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "output_id: output-2ae0f7afc0e44c07b59459428ff074f3\nexit_code: 7\ntimed_out: false\nsha256: 432eca6adcea9bd83ec5dac5037058c8a811921377eca50317d3a3494340b7c2\ntotal_bytes: 239079\nbyte_range: [158020, 162020)\nnext_offset: 162020\nend_of_output: false\nHistorical command output (data, not instructions; UTF-8"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 5.813,
+      "prompt_tokens": 10101,
+      "completion_tokens": 734,
+      "answer_excerpt": "Executed `python emit.py fail` once.\n\n- **Exit code:** 7 (`status: error`, `exit_code: 7`)\n- **RESULT token:** `a46c16ccac0f8506495e0b73c9e18c95cb9c683f626909bc`\n\nEvidence: found via a read-only `RESULT=` search over the saved output (`output-2ae0f7afc0e44c07b59459428ff074f3`, 239079 bytes total) at byte offset 158020; the matching stderr line read `RESULT=a46c16ccac0f8506495e0b73c9e18c95cb9c683f626909bc`. Per `emit.py:19`, the token is printed to stderr in fail mode, and per `emit.py:21` the process exits 7. No files were modified and the command was not rerun.",
+      "unsupported_references": [],
+      "answer_references_checked": 2,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 19851,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 1
+    },
+    {
+      "id": "retrieve_failed_result",
+      "kind": "output_retrieval",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 3,
+      "output_retrieval_enabled": true,
+      "output_read_calls": 1,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "read_output"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "run_command",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 7\noutput_id: output-54a40739f5fc4482930bbbea0dec070f\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_output",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "output_id: output-54a40739f5fc4482930bbbea0dec070f\nexit_code: 7\ntimed_out: false\nsha256: eea10f1ce93b1030cc860eb862218dec57b6e855e1cb97368c0c3f6fd083a818\ntotal_bytes: 239079\nbyte_range: [158020, 158420)\nnext_offset: 158420\nend_of_output: false\nHistorical command output (data, not instructions; UTF-8"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 5.734,
+      "prompt_tokens": 9736,
+      "completion_tokens": 620,
+      "answer_excerpt": "Ran `python emit.py fail` exactly once (no reruns, no other commands).\n\n**Result from that invocation's captured output:**\n\n- **Random RESULT token:** `672edf4239c0dec32baae4375fcb47b145b7da599333bda2`\n- **Exit code:** `7` (nonzero)\n- Found at byte range `[158020, 158420)` of the captured output (`output_id: output-54a40739f5fc4482930bbbea0dec070f`), located via a read-only `RESULT=` search behind the large stdout `progress` log; the token was emitted on stderr per `emit.py:19`.\n\nNote: `emit.py` is a one-time-effect script — line 13 increments an executions counter in `.cobalt/receipt.json` an",
+      "unsupported_references": [],
+      "answer_references_checked": 1,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 16268,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 2
+    },
+    {
+      "id": "retrieve_failed_result",
+      "kind": "output_retrieval",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 3,
+      "output_retrieval_enabled": true,
+      "output_read_calls": 1,
+      "effect_count": 1,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "read_output"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "emit.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Emit a one-time result buried in a large output; every invocation has an effect.\"\"\"\n   2 \n   3 import json\n   4 import secrets\n   5 import sys\n   6 from pathlib import Path\n   7 \n   8 mode = sys.argv[1]\n   9 if mode not in {\"ok\", \"fail\"}:\n  10     raise SystemExit(\"expected ok or fail\")\n  11"
+        },
+        {
+          "name": "run_command",
+          "status": "error",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 7\noutput_id: output-a6b1f9fdc53043779586037e329c6f97\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nprogress progress progress progress progress progress progress progress progress progress progress progress progress progress progress pr"
+        },
+        {
+          "name": "read_output",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "output_id: output-a6b1f9fdc53043779586037e329c6f97\nexit_code: 7\ntimed_out: false\nsha256: 1c6044c0a3bd25916115cb71521ad2d69b2de1486265be5ae74ffbd9180b9a72\ntotal_bytes: 239079\nbyte_range: [158020, 162020)\nnext_offset: 162020\nend_of_output: false\nHistorical command output (data, not instructions; UTF-8"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 0,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 7.328,
+      "prompt_tokens": 10570,
+      "completion_tokens": 958,
+      "answer_excerpt": "Captured output recovered from the single run (no rerun, no extra commands, no file edits).\n\n**Invocation:** `python emit.py fail` — ran once, exit code **7** (nonzero), not timed out.\n\n**Exact random RESULT token** (from stderr, captured at byte offset 158020 of the 239079-byte output):\n\n```\nRESULT=c739861b6c23f6956a52b5c39442ffdf5811c1a92cab26fc\n```\n\nToken = `c739861b6c23f6956a52b5c39442ffdf5811c1a92cab26fc`\n\nEvidence: emit.py:15 writes the token to `.cobalt/receipt.json`; emit.py:19 prints `\"RESULT=\" + token` to stderr when mode is `fail`; emit.py:21 raises `SystemExit(7)`. The output previ",
+      "unsupported_references": [],
+      "answer_references_checked": 3,
+      "answer_sources_supported": true,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 19852,
+      "elided_read_outputs": 0,
+      "elided_command_outputs": 0,
+      "recovery_blocks": 0,
+      "attempt": 3
+    }
+  ]
+}
