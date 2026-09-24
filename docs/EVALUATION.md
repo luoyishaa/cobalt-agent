@@ -199,3 +199,16 @@ that the old omission marker had removed, even though it retained exit codes.
 That is a diagnostic hypothesis, not proof of the model's private reasoning.
 The next revision preserves explicitly labeled raw prefix and suffix excerpts
 of old successful logs while still retaining the full result in the session.
+
+On commit `0636fd51860714cfa684e3368c8d2698eaa9ab48`, the same case passed
+**4/5** attempts. The failed attempt again ran all five commands successfully,
+then repeatedly read and searched `check.py` until reaching the tool limit.
+Across its model requests, 10 read-output elisions were recorded. The raw
+report is `benchmarks/results/live-20260924-082204.json`.
+
+The next test reproduced the competing-budget problem without a live model:
+the previous policy omitted a small `check.py` read before shrinking much larger
+successful logs. The revised policy removes old verbose command bodies first,
+keeping the short source read visible when that suffices to fit the request.
+This is a retention priority, not a claim that the log preview alone caused
+the change from 2/3 to 4/5; those are small independent samples.

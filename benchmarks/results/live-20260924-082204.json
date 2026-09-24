@@ -1,0 +1,484 @@
+{
+  "at": "2026-09-24T08:22:04.377878+00:00",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "repeats_per_case": 5,
+  "commit": "0636fd51860714cfa684e3368c8d2698eaa9ab48",
+  "working_tree_dirty": false,
+  "case_count": 5,
+  "passed": 4,
+  "pass_rate": 0.8,
+  "answer_sources_supported": 0,
+  "answer_references_checked": 0,
+  "total_prompt_tokens": 80550,
+  "total_completion_tokens": 4826,
+  "failure_categories": {
+    "tool_limit": 1
+  },
+  "rows": [
+    {
+      "id": "run_noisy_checks",
+      "kind": "workflow",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 7,
+      "tool_names": [
+        "read_file",
+        "list_files",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "list_files",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "check.py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nalpha: PASS\r\nalpha dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nbeta: PASS\r\nbeta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency sca"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ngamma: PASS\r\ngamma dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ndelta: PASS\r\ndelta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nepsilon: PASS\r\nepsilon dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nepsilon dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nepsilon de"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 5,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 9.156,
+      "prompt_tokens": 10224,
+      "completion_tokens": 1158,
+      "answer_excerpt": "All five stages were run exactly once each; no stage was rerun, and the verbose scan lines are omitted here.\n\n| Stage | First line | Reported exit code |\n|---|---|---|\n| alpha | `alpha: PASS` | 0 |\n| beta | `beta: PASS` | 0 |\n| gamma | `gamma: PASS` | 0 |\n| delta | `delta: PASS` | 0 |\n| epsilon | `epsilon: PASS` | 0 |\n\nEvidence:\n- Each command was `python check.py <stage>` run once in parallel; the tool reported `exit_code: 0` for all five.\n- Each run's output began with `<stage>: PASS`, followed by dependency-scan lines 000–092/093 reading \"validated\".\n\nCaveats / limits:\n- The tool elided/tru",
+      "unsupported_references": [],
+      "answer_references_checked": 0,
+      "answer_sources_supported": false,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 41971,
+      "elided_read_outputs": 1,
+      "elided_command_outputs": 2,
+      "recovery_blocks": 0,
+      "attempt": 1
+    },
+    {
+      "id": "run_noisy_checks",
+      "kind": "workflow",
+      "passed": false,
+      "run_status": "limit",
+      "tool_calls": 12,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "read_file",
+        "read_file",
+        "search",
+        "search",
+        "search",
+        "read_file"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nalpha: PASS\r\nalpha dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nbeta: PASS\r\nbeta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency sca"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ngamma: PASS\r\ngamma dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ndelta: PASS\r\ndelta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nepsilon: PASS\r\nepsilon dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nepsilon dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nepsilon de"
+        },
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "check.py:13:     print(f\"{stage}: PASS\")"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "check.py:20:     raise SystemExit(main(sys.argv))"
+        },
+        {
+          "name": "search",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "check.py:8: def main(argv: list[str]) -> int:\ncheck.py:9:     if len(argv) != 2 or argv[1] not in STAGES:\ncheck.py:12:     stage = argv[1]\ncheck.py:20:     raise SystemExit(main(sys.argv))"
+        },
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        }
+      ],
+      "failure_category": "tool_limit",
+      "changed_paths": [],
+      "successful_commands": 5,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 12.36,
+      "prompt_tokens": 33441,
+      "completion_tokens": 1149,
+      "answer_excerpt": "Stopped at the tool call limit. Review the run log before continuing.",
+      "unsupported_references": [],
+      "answer_references_checked": 0,
+      "answer_sources_supported": false,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 43906,
+      "elided_read_outputs": 10,
+      "elided_command_outputs": 8,
+      "recovery_blocks": 0,
+      "attempt": 2
+    },
+    {
+      "id": "run_noisy_checks",
+      "kind": "workflow",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 6,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nalpha: PASS\r\nalpha dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nbeta: PASS\r\nbeta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency sca"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ngamma: PASS\r\ngamma dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ndelta: PASS\r\ndelta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nepsilon: PASS\r\nepsilon dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nepsilon dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nepsilon de"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 5,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 7.14,
+      "prompt_tokens": 9771,
+      "completion_tokens": 882,
+      "answer_excerpt": "I read `check.py`, then ran each stage exactly once — no stage was rerun.\n\n| Stage | Exit code | Result line |\n|---|---|---|\n| alpha | 0 | `alpha: PASS` |\n| beta | 0 | `beta: PASS` |\n| gamma | 0 | `gamma: PASS` |\n| delta | 0 | `delta: PASS` |\n| epsilon | 0 | `epsilon: PASS` |\n\nAll five stages passed with exit code 0.\n\nEvidence: each `python check.py <stage>` invocation returned `exit_code: 0`, and the first line of each run's stdout was the corresponding `<stage>: PASS`. The bulk of each log (~12,000 chars) was `dependency scan NNN: validated ...` lines (scan indices running 000 up to 092/093)",
+      "unsupported_references": [],
+      "answer_references_checked": 0,
+      "answer_sources_supported": false,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 41561,
+      "elided_read_outputs": 1,
+      "elided_command_outputs": 2,
+      "recovery_blocks": 0,
+      "attempt": 3
+    },
+    {
+      "id": "run_noisy_checks",
+      "kind": "workflow",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 7,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "read_file"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nalpha: PASS\r\nalpha dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nbeta: PASS\r\nbeta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency sca"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ngamma: PASS\r\ngamma dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ndelta: PASS\r\ndelta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nepsilon: PASS\r\nepsilon dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nepsilon dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nepsilon de"
+        },
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 5,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 8.625,
+      "prompt_tokens": 17391,
+      "completion_tokens": 1063,
+      "answer_excerpt": "## Results (one run per stage, no reruns)\n\n| Stage | Exit code | Verdict line |\n|---|---|---|\n| alpha | 0 | `alpha: PASS` |\n| beta | 0 | `beta: PASS` |\n| gamma | 0 | `gamma: PASS` |\n| delta | 0 | `delta: PASS` |\n| epsilon | 0 | `epsilon: PASS` |\n\nCommand: `python check.py <stage>` for each of alpha, beta, gamma, delta, epsilon.\n\nEach run printed a `PASS` verdict as its first line, followed by per-stage verbose `dependency scan NNN: validated ...` lines (roughly 93 scan lines per stage, e.g. scan 000 through 092 for gamma). All five stages exited with code 0, so all passed.\n\nNote on the script ",
+      "unsupported_references": [],
+      "answer_references_checked": 0,
+      "answer_sources_supported": false,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 42043,
+      "elided_read_outputs": 3,
+      "elided_command_outputs": 4,
+      "recovery_blocks": 0,
+      "attempt": 4
+    },
+    {
+      "id": "run_noisy_checks",
+      "kind": "workflow",
+      "passed": true,
+      "run_status": "completed",
+      "tool_calls": 6,
+      "tool_names": [
+        "read_file",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command"
+      ],
+      "steps": [
+        {
+          "name": "read_file",
+          "status": "ok",
+          "path": "check.py",
+          "changed": false,
+          "output_excerpt": "   1 \"\"\"Five independent checks with deliberately verbose CI-style output.\"\"\"\n   2 \n   3 import sys\n   4 \n   5 STAGES = {\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\"}\n   6 \n   7 \n   8 def main(argv: list[str]) -> int:\n   9     if len(argv) != 2 or argv[1] not in STAGES:\n  10         print(\"usage: py"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nalpha: PASS\r\nalpha dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nalpha dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nbeta: PASS\r\nbeta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nbeta dependency sca"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ngamma: PASS\r\ngamma dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ngamma dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\ndelta: PASS\r\ndelta dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\ndelta dependency"
+        },
+        {
+          "name": "run_command",
+          "status": "ok",
+          "path": null,
+          "changed": false,
+          "output_excerpt": "exit_code: 0\nepsilon: PASS\r\nepsilon dependency scan 000: validated validated validated validated validated validated validated validated validated validated \r\nepsilon dependency scan 001: validated validated validated validated validated validated validated validated validated validated \r\nepsilon de"
+        }
+      ],
+      "failure_category": null,
+      "changed_paths": [],
+      "successful_commands": 5,
+      "verifier_exit": null,
+      "baseline_verifier_exit": null,
+      "verifier_output_excerpt": "",
+      "protected_tests_changed": false,
+      "elapsed_seconds": 5.641,
+      "prompt_tokens": 9723,
+      "completion_tokens": 574,
+      "answer_excerpt": "All five stages were run once each. Results (actual exit codes from the tool):\n\n| Stage | Exit code | Last line |\n|-------|-----------|-----------|\n| alpha | 0 | `alpha: PASS` |\n| beta | 0 | `beta: PASS` |\n| gamma | 0 | `gamma: PASS` |\n| delta | 0 | `delta: PASS` |\n| epsilon | 0 | `epsilon: PASS` |\n\nEach run printed `<stage>: PASS` followed by ~115 verbose `... dependency scan NNN: validated ...` lines (12,037 chars each). All five exited 0, indicating success for every stage.\n\nNote: the tool elided/truncated the middle of each log to fit context, but the exit codes above are the actual report",
+      "unsupported_references": [],
+      "answer_references_checked": 0,
+      "answer_sources_supported": false,
+      "answer_retries": 0,
+      "post_edit_reads_complete": true,
+      "max_context_chars": 41786,
+      "elided_read_outputs": 1,
+      "elided_command_outputs": 2,
+      "recovery_blocks": 0,
+      "attempt": 5
+    }
+  ]
+}

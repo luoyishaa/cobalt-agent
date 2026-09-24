@@ -114,6 +114,7 @@ class EvaluationTests(unittest.TestCase):
         self.assertTrue(row["passed"])
         self.assertEqual(row["tool_calls"], 6)
         self.assertGreater(row["elided_command_outputs"], 0)
+        self.assertEqual(row["elided_read_outputs"], 0)
         self.assertLessEqual(row["max_context_chars"], 48_000)
 
     def test_external_verifier_rejects_a_confident_but_unchanged_answer(self):

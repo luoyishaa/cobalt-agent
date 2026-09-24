@@ -46,22 +46,8 @@ def elide_tool_results(
     }
     elided_reads: list[str] = []
     elided_commands: list[str] = []
-    for message in view:
-        if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
-            break
-        call_id = message.get("tool_call_id")
-        if message.get("role") != "tool" or call_names.get(call_id) not in REPEATABLE_READ_TOOLS:
-            continue
-        marker = (
-            "status: elided\nEarlier read result omitted from this model request to fit the context budget. "
-            "The original is retained in the session. Read the source again if its details matter."
-        )
-        if len(message.get("content", "")) <= len(marker):
-            continue
-        message["content"] = marker
-        elided_reads.append(call_id)
-    # A successful command's exit status is durable evidence, but its stdout is
-    # not safe to recreate: the command may have changed external state.
+    # Large, older successful logs yield space before small source reads do.
+    # The latest output stays visible; executed commands are never recreated.
     command_results = [message for message in view if message.get("role") == "tool"
                        and call_names.get(message.get("tool_call_id")) == "run_command"]
     for message in command_results[:-1]:
@@ -83,6 +69,20 @@ def elide_tool_results(
             continue
         message["content"] = marker
         elided_commands.append(message["tool_call_id"])
+    for message in view:
+        if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
+            break
+        call_id = message.get("tool_call_id")
+        if message.get("role") != "tool" or call_names.get(call_id) not in REPEATABLE_READ_TOOLS:
+            continue
+        marker = (
+            "status: elided\nEarlier read result omitted from this model request to fit the context budget. "
+            "The original is retained in the session. Read the source again if its details matter."
+        )
+        if len(message.get("content", "")) <= len(marker):
+            continue
+        message["content"] = marker
+        elided_reads.append(call_id)
     return view, elided_reads, elided_commands
 
 
