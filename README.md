@@ -10,14 +10,21 @@ Requires Python 3.11 or newer. Install from this directory:
 
 ```powershell
 python -m pip install -e .
-$env:DEEPSEEK_API_KEY = "your-key"
+Copy-Item .env.example .env
+# Edit .env and fill DEEPSEEK_API_KEY
 cobalt --workspace path\to\repository "Explain where the CLI starts"
 ```
 
-You may place `DEEPSEEK_API_KEY=...` in a local `.env` inside the target
-workspace. The `.env` file is ignored by Git. For interactive mode, omit the
-question. File edits and commands ask for approval unless `--yes` is set.
-The default model is `deepseek-flash` through DeepSeek's chat completions API.
+The `.env` file is loaded from the directory where you launch Cobalt, not from
+the repository you ask it to work on. Process environment values take priority;
+`--env-file` selects another local file. The file is ignored by Git. To change
+providers, set `COBALT_PROVIDER` and that provider's key in `.env`. Set
+`COBALT_MODEL_TIER=pro` or `COBALT_MODEL_ID` for an exact model. CLI flags
+`--provider`, `--model`, and `--base-url` override those settings. Available
+presets and important protocol limits are in [provider documentation](docs/PROVIDERS.md).
+For interactive mode, omit the question. File edits and commands ask for approval
+unless `--yes` is set.
+The default is `deepseek-flash` through DeepSeek's chat completions API.
 Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
 
 ## What is different
