@@ -143,6 +143,15 @@ class Workspace:
         if digest_bytes(before) != expected_sha256:
             raise ValueError("file changed since it was read; read it again")
         content = before.decode("utf-8")
+        # Reads display logical lines. Accept either common newline spelling,
+        # but preserve the file's convention and every byte outside the edit.
+        without_crlf = content.replace("\r\n", "")
+        if "\r" not in without_crlf and not ("\r\n" in content and "\n" in without_crlf):
+            newline = "\r\n" if "\r\n" in content else "\n"
+            old = old.replace("\r\n", "\n").replace("\n", newline)
+            new = new.replace("\r\n", "\n").replace("\n", newline)
+        elif any(mark in old + new for mark in ("\r", "\n")):
+            raise ValueError("mixed or bare-CR newlines: multiline replacement is unsupported")
         if content.count(old) != 1:
             raise ValueError("old text must occur exactly once")
         updated = content.replace(old, new, 1).encode("utf-8")

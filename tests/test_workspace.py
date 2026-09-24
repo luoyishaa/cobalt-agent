@@ -10,6 +10,51 @@ from cobalt.workspace import Workspace
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_crlf_request_keeps_lf_file_and_single_line_insertion_keeps_crlf(self):
+        for before, old, new, expected in [
+            (b"a\nb\n", "a\r\nb", "c\r\nd", b"c\nd\n"),
+            (b"a\r\nb\r\n", "b", "c\nd", b"a\r\nc\r\nd\r\n"),
+        ]:
+            with self.subTest(before=before), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "text.txt"
+                path.write_bytes(before)
+                workspace = Workspace(Path(directory))
+                workspace.replace_text("text.txt", old, new, workspace.read_file("text.txt").digest)
+                self.assertEqual(path.read_bytes(), expected)
+
+    def test_newline_compatibility_does_not_allow_ambiguous_or_inexact_edits(self):
+        for before, old in [
+            (b"a\r\nb\r\na\r\nb\r\n", "a\nb"),
+            (b"a\r\n b\r\n", "a\nb"),
+        ]:
+            with self.subTest(before=before), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "text.txt"
+                path.write_bytes(before)
+                workspace = Workspace(Path(directory))
+                with self.assertRaisesRegex(ValueError, "exactly once"):
+                    workspace.replace_text("text.txt", old, "changed", workspace.read_file("text.txt").digest)
+                self.assertEqual(path.read_bytes(), before)
+
+    def test_mixed_newlines_are_not_silently_normalized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "text.txt"
+            original = b"a\r\nb\nc\r\n"
+            path.write_bytes(original)
+            workspace = Workspace(Path(directory))
+            with self.assertRaisesRegex(ValueError, "mixed"):
+                workspace.replace_text("text.txt", "a\nb", "new", workspace.read_file("text.txt").digest)
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_multiline_edit_preserves_crlf_when_request_uses_lf(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "task.py"
+            path.write_bytes(b"# untouched\r\ndef total(amounts):\r\n    raise NotImplementedError\r\n")
+            workspace = Workspace(Path(directory))
+            read = workspace.read_file("task.py")
+            workspace.replace_text("task.py", "def total(amounts):\n    raise NotImplementedError",
+                                   "def total(amounts):\n    return sum(amounts)", read.digest)
+            self.assertEqual(path.read_bytes(), b"# untouched\r\ndef total(amounts):\r\n    return sum(amounts)\r\n")
+
     def test_symlink_cannot_escape_workspace(self):
         with tempfile.TemporaryDirectory() as directory:
             parent = Path(directory)

@@ -118,7 +118,7 @@ def run_attempt(config, case: str, policy: str, attempt: int) -> dict:
         return {
             "case": case, "policy": policy, "attempt": attempt, "expected_tax_percent": rate,
             "task_passed": verdict["passed"], "run_status": result.status,
-            "false_completed": result.status == "completed" and not verdict["passed"],
+            "runtime_completed_without_task_success": result.status == "completed" and not verdict["passed"],
             "tool_calls": result.tool_calls, "elapsed_seconds": elapsed,
             "prompt_tokens": result.prompt_tokens, "completion_tokens": result.completion_tokens,
             "answer": result.answer, "source": (root / "invoice.py").read_text(encoding="utf-8"),
