@@ -96,6 +96,8 @@ Search and integrity verification use bounded memory but scan the archive;
 there is no search index, disk quota, automatic retention cleanup, or protection
 against a malicious local command modifying both data and metadata. Archives
 are workspace-scoped, not isolated between sessions or users.
+Retrieval requires a known output ID; there is no archive discovery index for
+IDs lost when older conversation turns leave the model context.
 If archive publication fails after a command completes, the reply preserves
 the actual exit code and reports the storage failure separately. It provides
 no output ID and warns that only the bounded preview is available.

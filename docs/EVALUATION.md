@@ -288,3 +288,12 @@ publication failure hid an already-completed command's exit code, and grading
 from a journal excerpt rejected valid tokens later in a retrieved page. The
 runtime now reports the actual command exit alongside an archive warning; the
 grader inspects complete tool replies rather than journal excerpts.
+
+The final clean-commit regression on
+`a4c820ba6c5e283ba28a8b5c119242ed3fd872f9` passed **9/9** cases, including
+the original seven and both retrieval cases. Four repair verifiers exited
+successfully; each retrieval task had one command effect and one archive read.
+The run used 84,738 prompt tokens and 7,617 completion tokens. See
+`benchmarks/results/live-20260924-085337.json`. Local verification ran 57 tests:
+56 passed and one Windows symlink-permission test was skipped. Static checks
+passed. No general success-rate claim follows from this single regression.
