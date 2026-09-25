@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.audit_multifile_zero import check_zero
 from scripts.evaluate_history_outputs import HistoricalAgent
 from scripts.evaluate_multifile import (
     CORRECT_API,
@@ -13,6 +14,16 @@ from scripts.evaluate_multifile import (
 
 
 class MultifileVerifierTests(unittest.TestCase):
+    def test_zero_price_order_is_not_an_empty_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            create_fixture(root)
+            (root / "pricing.py").write_text(CORRECT_PRICING)
+            (root / "api.py").write_text(CORRECT_API)
+            self.assertTrue(check_zero(root)["passed"])
+            (root / "api.py").write_text(CORRECT_API.replace("not lines", "subtotal == 0"))
+            self.assertFalse(check_zero(root)["passed"])
+
     def test_oracle_rejects_fixture_and_accepts_correct_public_behavior(self):
         for rate in (17, 9):
             with self.subTest(rate=rate), tempfile.TemporaryDirectory() as directory:

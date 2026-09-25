@@ -1,0 +1,312 @@
+{
+  "source_report": "multifile-20260925-142920.json",
+  "protocol": "Additional post-run audit; original scores remain unchanged. A nonempty zero-price order is below the free-shipping threshold.",
+  "rows": [
+    {
+      "case": "cross_file",
+      "policy": "budget_only",
+      "attempt": 1,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "cross_file",
+      "policy": "historical",
+      "attempt": 1,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "revised_requirement",
+      "policy": "budget_only",
+      "attempt": 1,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 0,
+          "total_cents": 0,
+          "brand": "North Store"
+        },
+        "passed": false
+      },
+      "combined_passed": false
+    },
+    {
+      "case": "revised_requirement",
+      "policy": "historical",
+      "attempt": 1,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "interrupted",
+      "policy": "budget_only",
+      "attempt": 1,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "Human Edited Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "interrupted",
+      "policy": "historical",
+      "attempt": 1,
+      "original_task_passed": false,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "Human Edited Store"
+        },
+        "passed": true
+      },
+      "combined_passed": false
+    },
+    {
+      "case": "cross_file",
+      "policy": "historical",
+      "attempt": 2,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "cross_file",
+      "policy": "budget_only",
+      "attempt": 2,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "revised_requirement",
+      "policy": "historical",
+      "attempt": 2,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "revised_requirement",
+      "policy": "budget_only",
+      "attempt": 2,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "interrupted",
+      "policy": "historical",
+      "attempt": 2,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 0,
+          "total_cents": 0,
+          "brand": "Human Edited Store"
+        },
+        "passed": false
+      },
+      "combined_passed": false
+    },
+    {
+      "case": "interrupted",
+      "policy": "budget_only",
+      "attempt": 2,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "Human Edited Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "cross_file",
+      "policy": "budget_only",
+      "attempt": 3,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "cross_file",
+      "policy": "historical",
+      "attempt": 3,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "revised_requirement",
+      "policy": "budget_only",
+      "attempt": 3,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "revised_requirement",
+      "policy": "historical",
+      "attempt": 3,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "North Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "interrupted",
+      "policy": "budget_only",
+      "attempt": 3,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "Human Edited Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    },
+    {
+      "case": "interrupted",
+      "policy": "historical",
+      "attempt": 3,
+      "original_task_passed": true,
+      "supplement": {
+        "actual": {
+          "subtotal_cents": 0,
+          "tax_cents": 0,
+          "shipping_cents": 300,
+          "total_cents": 300,
+          "brand": "Human Edited Store"
+        },
+        "passed": true
+      },
+      "combined_passed": true
+    }
+  ]
+}

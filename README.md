@@ -40,7 +40,8 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
   made by commands or external writers. Incomplete observations remain unverified.
 - Every run has an event log and a compact result under `.cobalt/runs/`.
 - If a process stops mid-tool, session resume marks that call's effect unknown
-  and requires inspection; it does not run the tool again automatically.
+  and requires inspection. Exact interrupted command replay remains blocked
+  after inspection; see [recovery behavior and limits](docs/RECOVERY.md).
 - Explicit `file:line` references are checked against fresh reads. A completed
   run records actions; it does not certify every sentence in the answer.
 - Session memory stores file locations and digests as navigation hints, not
@@ -54,3 +55,5 @@ python -m unittest discover -s tests -v
 
 Read [the architecture guide](docs/ARCHITECTURE.md) for the design decisions
 and [the evaluation protocol](docs/EVALUATION.md) for measured results and limits.
+The [multi-file continuation results](docs/MULTIFILE.md) include failed recovery,
+a supplementary verifier audit, and a targeted rerun after the fix.
