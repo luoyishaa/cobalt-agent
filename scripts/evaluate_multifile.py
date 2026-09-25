@@ -210,6 +210,7 @@ def run_attempt(config, case, policy, attempt):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--repeat", type=int, default=3)
+    parser.add_argument("--case", choices=CASES, help="Run one frozen scenario for a targeted rerun")
     args = parser.parse_args()
     if not 1 <= args.repeat <= 5:
         parser.error("repeat must be 1..5")
@@ -217,12 +218,13 @@ def main():
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True).strip():
         parser.error("commit protocol and oracle before running")
     config = resolve_config(env_file=root / ".env", provider="deepseek")
+    cases = (args.case,) if args.case else CASES
     report = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
                   "at": datetime.now(UTC).isoformat(), "model": config.model, "provider": config.provider,
                   "repeat": args.repeat, "budget_chars": 48000, "max_tool_calls": 24,
-                  "protocol": "benchmarks/multifile/PROTOCOL.md", "rows": []}
+                  "protocol": "benchmarks/multifile/PROTOCOL.md", "cases": list(cases), "rows": []}
     output = root / "benchmarks" / "results" / ("multifile-" + datetime.now(UTC).strftime("%Y%m%d-%H%M%S") + ".json")
-    jobs = [(case, policy, attempt) for attempt in range(1, args.repeat + 1) for case in CASES
+    jobs = [(case, policy, attempt) for attempt in range(1, args.repeat + 1) for case in cases
             for policy in (["budget_only", "historical"] if attempt % 2 else ["historical", "budget_only"])]
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(run_attempt, config, *job) for job in jobs]

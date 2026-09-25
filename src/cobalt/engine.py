@@ -18,6 +18,7 @@ from .model import Model, ModelOutputError
 from .session import (
     SessionStore,
     close_interrupted_calls,
+    interrupted_commands,
     recovery_inspection_call_ids,
     uninspected_interrupted_calls,
 )
@@ -68,6 +69,7 @@ class Agent:
             self.evidence = EvidenceBook()
             self.recovered_calls = []
             self.recovery_resolved: set[str] = set()
+        self.interrupted_commands = interrupted_commands(self.messages)
 
     def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
         selected = list(self.messages)
@@ -80,6 +82,13 @@ class Agent:
                 "\nSession recovery: tool calls " + ", ".join(self.recovered_calls)
                 + " were interrupted. Their effects are unknown. Inspect the workspace before making claims or retrying."
                 if self.recovered_calls else ""
+            )
+            + (
+                "\nInterrupted commands remain non-repeatable in this session even after inspection: "
+                + ", ".join(self.interrupted_commands)
+                + ". Inspect effects and continue independent work; do not rerun or reformulate these commands. "
+                "If retry is necessary, report that manual reconciliation is required."
+                if self.interrupted_commands else ""
             )
             + ("\n" + retry_hint if retry_hint else ""),
         }
@@ -294,6 +303,16 @@ class Agent:
                             "read_file, list_files, or search before another effectful action."
                         )
                         journal.add("tool_rejected", name=call.name, reason="recovery_inspection_required")
+                    elif (call.name == "run_command" and isinstance(call.arguments, dict)
+                          and any(call.arguments.get("argv") == argv for argv in self.interrupted_commands.values())):
+                        # A fresh call ID or timeout does not make the same unknown effect safe.
+                        outcome = ToolOutcome(
+                            "denied", "This command was interrupted and may already have acted. "
+                            "Inspecting files does not authorize replay. Automatic replay of the same argv "
+                            "is blocked for this session; manual reconciliation is required. "
+                            "Do not reformulate the command to bypass this restriction."
+                        )
+                        journal.add("tool_rejected", name=call.name, reason="interrupted_command_replay")
                     else:
                         outcome = self.tools.execute(call.name, call.arguments)
                     outcome_text = outcome.to_message()

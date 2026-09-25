@@ -41,6 +41,25 @@ def uninspected_interrupted_calls(messages: list[dict[str, Any]], resolved: set[
                    and message.get("tool_call_id") not in resolved})
 
 
+def interrupted_commands(messages: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Inspection does not establish whether an unknown command is safe to repeat."""
+    interrupted = set(uninspected_interrupted_calls(messages, set()))
+    commands = {}
+    for message in messages:
+        for call in message.get("tool_calls") or []:
+            function = call.get("function", {})
+            if call.get("id") not in interrupted or function.get("name") != "run_command":
+                continue
+            try:
+                args = json.loads(function.get("arguments", "{}"))
+            except (TypeError, ValueError):
+                continue
+            argv = args.get("argv") if isinstance(args, dict) else None
+            if isinstance(argv, list) and argv and all(isinstance(item, str) for item in argv):
+                commands[call["id"]] = argv
+    return commands
+
+
 def recovery_inspection_call_ids(messages: list[dict[str, Any]], unresolved: list[str]) -> set[str]:
     if not unresolved:
         return set()
