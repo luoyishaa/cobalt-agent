@@ -93,6 +93,6 @@ class FinalizationTests(unittest.TestCase):
             self.assertEqual(result.model_answer, "Everything is verified.")
             self.assertEqual(len(model.seen), 5)  # Two tools plus three final attempts.
             self.assertEqual(agent.messages[-1]["content"], result.answer)
-            saved = json.loads((workspace.root / ".cobalt" / "runs" / result.run_id / "result.json").read_text())
+            saved = json.loads((workspace.root / ".cobalt" / "runs" / result.run_id / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(saved["model_answer"], "Everything is verified.")
             self.assertEqual(saved["answer"], result.answer)

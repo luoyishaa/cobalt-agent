@@ -70,3 +70,70 @@ resume.
 These are deterministic boundary checks, not a measured probability that a
 language model will choose the correct actions. Process-interruption tests and
 live coding tasks exercise separate contracts described in [EVALUATION.md](EVALUATION.md).
+
+## Finalization feedback and delivery
+
+When a model proposes a final answer, the runtime collects missing post-edit
+reads (including newly created tests), missing successful-command evidence for
+the current workspace version, and unsupported source citations. It provides
+the concrete checklist and a bounded excerpt of the rejected draft in the next
+model request. Drafts and rejection reasons are recorded as journal events.
+
+At most two finalization rejections are permitted per `ask`; partial progress
+does not reset the allowance. Tools used to satisfy the checklist consume the
+original tool budget. A normal completion needs no extra model request.
+Incomplete filesystem observation is not treated as something another model
+answer can repair, and receives no finalization retry.
+
+If evidence remains incomplete, `answer` contains a runtime-generated
+`Unverified` notice and the missing evidence. The raw final candidate is retained
+in `RunResult.model_answer` and `result.json`, not delivered as the accepted
+answer or inserted into subsequent conversation history. Rejected candidates
+remain in the journal. Completed answers retain normal model prose. Tool-limit
+results preserve pending read paths and the current verification fingerprint.
+
+This prevents an unverified draft's confident wording from overriding the
+runtime verdict. It does not judge all natural-language claims or determine
+whether a successful command was a relevant or comprehensive test. Withholding
+the whole unverified draft can hide useful explanation; it remains available in
+the run record. There is no semantic claim classifier or second reviewing model.
+
+### Measured continuation
+
+Clean commit `f7c6245` reran the existing revised-requirement task, three attempts
+for each context policy, with the same 24-tool and 48,000-character limits:
+
+```powershell
+python -m scripts.evaluate_multifile --case revised_requirement --repeat 3
+python -m scripts.audit_multifile_zero benchmarks/results/multifile-20260926-141036.json
+```
+
+| Six attempts | Earlier run | Finalization rerun |
+| --- | ---: | ---: |
+| Original functional verifier | 6/6 | 6/6 |
+| Functional verifier plus zero-price audit | 5/6 | 6/6 |
+| Runtime evidence complete | 3/6 | 5/6 |
+| Attempts receiving feedback | 4 | 3 |
+| Feedback requests | 4 | 4 |
+| Tool calls | 101 | 93 |
+| Input tokens | 387,410 | 356,889 |
+| Output tokens | 40,905 | 34,377 |
+
+In the rerun, two of three feedback recipients completed their evidence. The
+remaining model repeated "Repair complete and verified" after two reminders,
+without reading `validate.py`. Its delivered answer was instead the unverified
+notice naming that file; the draft was preserved separately. There was no
+infinite retry and no tool-budget increase.
+
+Before data: revised-requirement rows in
+`benchmarks/results/multifile-20260925-142920.json` and its zero audit. After data:
+`benchmarks/results/multifile-20260926-141036.json` and its zero audit. This is a
+small before/after diagnostic with stochastic model behavior, not a controlled
+estimate of quality improvement, latency or cost savings.
+
+Five dedicated integration tests cover normal completion, successful checklist
+repair, noncompliance with preserved drafts, partial progress without allowance
+reset, and exhausted tool budget. Complete regression: 88 tests, 87 passed and
+one Windows symlink-permission case skipped; Ruff passed. A UTF-8 read in the
+new result-record test was corrected after the experimental commit; runtime and
+live grading behavior were unchanged.

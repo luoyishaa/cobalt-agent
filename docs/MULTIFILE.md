@@ -92,3 +92,7 @@ Local regression after the fix and audit ran 83 tests: 82 passed and one
 Windows symlink-permission case was skipped. Ruff passed. Next work should
 address final-answer evidence consistency and independently specified task
 boundaries; no benchmark-specific pricing rules were added to the runtime.
+
+The subsequent [finalization experiment](VERIFICATION.md#finalization-feedback-and-delivery)
+adds bounded evidence feedback and separates unverified drafts from delivered
+answers, with a six-attempt revised-requirement rerun.

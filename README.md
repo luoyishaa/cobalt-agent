@@ -36,6 +36,9 @@ Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
   the saved output without rerunning the command, including after a session restart.
 - The answer is marked unverified if an edit has no later successful check.
 - After an edit, the agent must reread the changed file before its final answer.
+- Missing final evidence receives up to two checklist reminders within the
+  original tool budget. Unverified drafts stay in the run record; the delivered
+  answer names the missing evidence instead of repeating unsupported confidence.
 - Observed file changes invalidate earlier command evidence, including changes
   made by commands or external writers. Incomplete observations remain unverified.
 - Every run has an event log and a compact result under `.cobalt/runs/`.
