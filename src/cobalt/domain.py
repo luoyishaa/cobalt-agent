@@ -62,3 +62,4 @@ class RunResult:
     unrefreshed_paths: list[str] = field(default_factory=list)
     verification_fingerprint: str | None = None
     observation_errors: list[str] = field(default_factory=list)
+    model_answer: str = ""

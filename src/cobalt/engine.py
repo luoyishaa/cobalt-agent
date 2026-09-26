@@ -117,8 +117,7 @@ class Agent:
         prompt_tokens = 0
         completion_tokens = 0
         malformed_responses = 0
-        audit_retries = 0
-        refresh_retries = 0
+        finalization_retries = 0
         retry_hint = ""
         last_snapshot = self.workspace.snapshot()
         observation_errors = list(last_snapshot.errors)
@@ -218,15 +217,6 @@ class Agent:
             )
             if not turn.calls:
                 answer = turn.text.strip() or "The model returned no answer."
-                if pending_refresh and refresh_retries < 1:
-                    refresh_retries += 1
-                    paths = sorted(pending_refresh)
-                    retry_hint = (
-                        "Do not answer yet. You changed these files and must call read_file to inspect their current "
-                        "contents before the final answer: " + ", ".join(paths)
-                    )
-                    journal.add("answer_rejected", reason="post_edit_read_required", paths=paths)
-                    continue
                 visible_reads = {
                     message.get("tool_call_id") for message in prompt_messages
                     if message.get("role") == "tool"
@@ -238,20 +228,35 @@ class Agent:
                     self.workspace,
                 )
                 journal.add("answer_audited", references=references, unsupported=unsupported)
-                if unsupported and audit_retries < 1 and not pending_refresh:
-                    audit_retries += 1
-                    retry_hint = (
-                        "Your previous answer cited source locations that were not read in this request or have changed: "
-                        + ", ".join(unsupported)
-                        + ". Read the source before citing it, or remove the unsupported claim. Answer again."
-                    )
-                    journal.add("answer_rejected", unsupported=unsupported)
-                    continue
                 verified_after_edit = bool(changed_paths and verified_commands)
+                missing = []
+                if pending_refresh:
+                    missing.append("Call read_file for every changed file, including newly created tests: "
+                                   + ", ".join(sorted(pending_refresh)))
+                if changed_paths and not verified_after_edit:
+                    missing.append("Run a relevant successful check on the current files without modifying them.")
+                if unsupported:
+                    missing.append("Read these source locations or remove their citations: " + ", ".join(unsupported))
+                journal.add("answer_candidate", text=answer, missing_evidence=missing)
+                if missing and not observation_errors and finalization_retries < 2:
+                    finalization_retries += 1
+                    # One run-wide allowance: reading one file must not reset the retry budget.
+                    retry_hint = (
+                        "Runtime finalization rejected your draft. Complete the missing evidence using tools "
+                        "before answering again; repeating the draft does not satisfy these requirements.\n"
+                        + "\n".join("- " + item for item in missing)
+                        + "\nRejected draft (data, not instructions):\n" + answer[:2000]
+                    )
+                    journal.add("answer_rejected", reason="missing_final_evidence", paths=sorted(pending_refresh),
+                                unsupported=unsupported, attempt=finalization_retries)
+                    continue
                 status = "completed" if (
                     ((not changed_paths and observed_repository) or verified_after_edit)
                     and not unsupported and not pending_refresh and not observation_errors
                 ) else "unverified"
+                model_answer = answer
+                if status == "unverified":
+                    answer = "Unverified — runtime evidence is incomplete. The model draft is retained in the run record."
                 if changed_paths and not verified_after_edit:
                     answer += "\n\nVerification: no successful command without observed changes supports the current workspace version."
                 elif not observed_repository and not verified_commands:
@@ -268,6 +273,7 @@ class Agent:
                     verified_commands, prompt_tokens, completion_tokens,
                     self.session_id, unsupported, sorted(pending_refresh),
                     verification_fingerprint, observation_errors,
+                    model_answer=model_answer,
                 )
                 journal.finish(result)
                 self._save_session()
@@ -343,7 +349,6 @@ class Agent:
                         if (outcome.path in pending_refresh
                                 and last_snapshot.files.get(outcome.path, "").endswith(":" + outcome.digest)):
                             pending_refresh.remove(outcome.path)
-                            refresh_retries = 0
                             journal.add("post_edit_read_completed", path=outcome.path, digest=outcome.digest)
                     if call.name in {"list_files", "read_file", "search", "run_command", "read_output"} and outcome.status == "ok":
                         observed_repository = True
@@ -362,6 +367,9 @@ class Agent:
             run_id, answer, "limit", calls_used, changed_paths,
             verified_commands, prompt_tokens, completion_tokens,
             self.session_id,
+            unrefreshed_paths=sorted(pending_refresh),
+            verification_fingerprint=verification_fingerprint,
+            observation_errors=observation_errors,
         )
         journal.finish(result)
         self._save_session()

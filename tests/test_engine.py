@@ -16,10 +16,17 @@ class ScriptedModel:
     def __init__(self, turns):
         self.turns = iter(turns)
         self.seen = []
+        self.last = None
 
     def complete(self, messages, tools):
         self.seen.append(list(messages))
-        return next(self.turns)
+        try:
+            self.last = next(self.turns)
+        except StopIteration:
+            # A noncompliant model can repeat its final draft after bounded feedback.
+            if self.last is None or self.last.calls:
+                raise
+        return self.last
 
 
 class AgentTests(unittest.TestCase):
@@ -113,7 +120,7 @@ class AgentTests(unittest.TestCase):
             agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True))
             result = agent.ask("Run the checks")
             self.assertEqual(result.status, "unverified")
-            self.assertEqual(len(model.seen), 3)
+            self.assertEqual(len(model.seen), 4)
             self.assertEqual(result.verified_commands, [])
             self.assertEqual(set(result.changed_paths), {f"effect-{index}" for index in range(5)})
             self.assertLessEqual(len(json.dumps(model.seen[1], ensure_ascii=False)), DEFAULT_CONTEXT_BUDGET_CHARS)
@@ -274,7 +281,8 @@ class AgentTests(unittest.TestCase):
             result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Find the port")
             self.assertEqual(result.status, "completed")
             self.assertEqual(result.unsupported_references, [])
-            self.assertIn("not read in this request", model.seen[2][0]["content"])
+            self.assertIn("details.py:1", model.seen[2][0]["content"])
+            self.assertIn("remove their citations", model.seen[2][0]["content"])
 
     def test_read_only_mode_hides_and_denies_write_tools(self):
         with tempfile.TemporaryDirectory() as directory:

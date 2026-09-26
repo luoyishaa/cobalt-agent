@@ -80,7 +80,7 @@ class WeakeningModel:
         ])
 
     def complete(self, messages, tools):
-        return next(self.turns)
+        return next(self.turns, ModelTurn("Done."))
 
 
 class StaleCitationModel:
@@ -100,7 +100,7 @@ class StaleCitationModel:
         ])
 
     def complete(self, messages, tools):
-        return next(self.turns)
+        return next(self.turns, ModelTurn("Fixed it in grades.py:1."))
 
 
 class EvaluationTests(unittest.TestCase):
@@ -265,4 +265,4 @@ class EvaluationTests(unittest.TestCase):
         self.assertTrue(row["passed"])
         self.assertEqual(row["run_status"], "unverified")
         self.assertFalse(row["answer_sources_supported"])
-        self.assertEqual(row["answer_retries"], 1)
+        self.assertEqual(row["answer_retries"], 2)

@@ -200,7 +200,8 @@ def run_attempt(config, case, policy, attempt):
         events = [json.loads(line) for line in (root / ".cobalt" / "runs" / result.run_id / "events.jsonl")
                   .read_text(encoding="utf-8").splitlines()]
         return {"case": case, "policy": policy, "attempt": attempt, "task_passed": verdict["passed"],
-                    "run_status": result.status, "answer": result.answer, "verifier": verdict, "baseline": baseline,
+                    "run_status": result.status, "answer": result.answer, "model_answer": result.model_answer,
+                    "unrefreshed_paths": result.unrefreshed_paths, "verifier": verdict, "baseline": baseline,
                     "tool_calls": result.tool_calls, "prompt_tokens": result.prompt_tokens,
                     "completion_tokens": result.completion_tokens, "elapsed_seconds": elapsed,
                     "sources": {p.name: p.read_text(encoding="utf-8") for p in root.glob("*.py")},
