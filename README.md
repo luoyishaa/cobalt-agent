@@ -26,6 +26,22 @@ For interactive mode, omit the question. File edits and commands ask for approva
 unless `--yes` is set.
 The default is `deepseek-flash` through DeepSeek's chat completions API.
 Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
+Commands run on the local host. `--yes` skips approval prompts, so use it only
+in a disposable environment when the repository or task is untrusted.
+
+## Run the demo
+
+On Windows, after configuring a local `.env`, run:
+
+```powershell
+.\scripts\demo.ps1
+```
+
+The script copies a small broken project into a temporary directory, confirms
+its test fails, asks Cobalt to repair it, then runs a verifier outside the
+agent's workspace. It prints the workspace and run-record paths so the result
+can be inspected. The real model is nondeterministic; a successful demo run is
+one observed outcome, not a reliability estimate. API usage may incur charges.
 
 ## What is different
 
@@ -60,3 +76,5 @@ Read [the architecture guide](docs/ARCHITECTURE.md) for the design decisions
 and [the evaluation protocol](docs/EVALUATION.md) for measured results and limits.
 The [multi-file continuation results](docs/MULTIFILE.md) include failed recovery,
 a supplementary verifier audit, and a targeted rerun after the fix.
+The [public issue evaluation](docs/SWEBENCH.md) records a fixed SWE-bench Lite
+attempt and its grading outcome.
