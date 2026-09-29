@@ -384,6 +384,8 @@ class Agent:
                         status=outcome.status, changed=outcome.changed,
                         path=outcome.path, digest=outcome.digest,
                         output=outcome.message[:2000],
+                        output_tail=(outcome.message[-1000:] if call.name == "run_command"
+                                     and outcome.status != "ok" else ""),
                         changes=outcome.changes, workspace_fingerprint=outcome.workspace_fingerprint,
                         observation_errors=outcome.observation_errors,
                     )

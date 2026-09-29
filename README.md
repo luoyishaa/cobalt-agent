@@ -54,6 +54,7 @@ one observed outcome, not a reliability estimate. API usage may incur charges.
 - Commands receive an argument array and run without a shell.
 - Large command outputs have durable IDs. The agent can search or page through
   the saved output without rerunning the command, including after a session restart.
+  Failed-command previews retain the tail of stderr even after noisy stdout.
 - The answer is marked unverified if an edit has no later successful check.
 - After an edit, the agent must reread the changed file before its final answer.
 - Missing final evidence receives up to two checklist reminders within the

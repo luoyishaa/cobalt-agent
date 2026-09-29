@@ -1,16 +1,27 @@
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from cobalt.domain import ToolOutcome
-from cobalt.execution import DockerCommandRunner
+from cobalt.execution import DockerCommandRunner, LocalCommandRunner
 from cobalt.isolation import prepare_isolated_workspace
 from cobalt.workspace import Workspace
 
 
 class DockerExecutionTests(unittest.TestCase):
+    def test_failed_command_preview_keeps_stderr_after_noisy_stdout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outcome = LocalCommandRunner(Path(directory)).run([
+                sys.executable, "-c",
+                "import sys; print('x'*20000); print('ROOT_CAUSE', file=sys.stderr); sys.exit(2)",
+            ])
+            self.assertEqual(outcome.status, "error")
+            self.assertIn("exit_code: 2", outcome.message)
+            self.assertIn("ROOT_CAUSE", outcome.message)
+
     @unittest.skipUnless(os.environ.get("COBALT_RUN_DOCKER_TESTS") == "1", "requires a local Docker image")
     def test_real_container_hides_local_secret_and_enforces_timeout(self):
         with tempfile.TemporaryDirectory() as directory:

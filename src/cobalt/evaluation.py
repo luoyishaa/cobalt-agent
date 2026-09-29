@@ -105,9 +105,12 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             {
                 "name": event["name"],
                 "status": event["status"],
+                "args": event.get("args", {}),
                 "path": event.get("path"),
                 "changed": event["changed"],
                 "output_excerpt": event.get("output", "")[:300],
+                "output_tail": event.get("output_tail", "") if event["name"] == "run_command"
+                and event["status"] != "ok" else "",
             }
             for event in events if event["kind"] == "tool_finished"
         ]

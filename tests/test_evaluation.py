@@ -106,6 +106,31 @@ class StaleCitationModel:
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_failed_command_record_keeps_argv_and_error_tail(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        argv = [sys.executable, "-c",
+                "import sys; print('x'*3000); print('ASSERTION_DETAIL', file=sys.stderr); sys.exit(2)"]
+
+        class FailedCommandModel:
+            def __init__(self):
+                self.calls = 0
+
+            def complete(self, _messages, _tools):
+                self.calls += 1
+                if self.calls == 1:
+                    return ModelTurn("", (ToolCall("check", "run_command", {
+                        "argv": argv, "purpose": "check",
+                    }),))
+                return ModelTurn("The check failed.")
+
+        row = run_case({
+            "id": "diagnostic_retention", "fixture": "fixtures/entrypoint",
+            "request": "Run the check", "kind": "question", "answer_terms": ["unimportant"],
+        }, fixtures, FailedCommandModel)
+        step = row["steps"][0]
+        self.assertEqual(step["args"]["argv"], argv)
+        self.assertIn("ASSERTION_DETAIL", step["output_tail"])
+
     def test_case_policy_can_require_runtime_completion_and_forbid_edit_tools(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
         source = fixtures / "fixtures" / "grades" / "grades.py"

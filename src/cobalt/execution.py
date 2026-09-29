@@ -172,12 +172,32 @@ def _run_process(root: Path, argv: list[str], *, timeout: int, env: dict[str, st
         except (OSError, ValueError) as exc:
             archive_notice = (f"output archive unavailable ({type(exc).__name__}). Command already finished. "
                               "Do not rerun merely to recover logs; only the following bounded preview is available.\n")
+        stdout.seek(0, os.SEEK_END)
+        stdout_size = stdout.tell()
+        stderr.seek(0, os.SEEK_END)
+        stderr_size = stderr.tell()
         stdout.seek(0)
-        stderr.seek(0)
-        combined = stdout.read(MAX_OUTPUT_CHARS + 1) + b"\n" + stderr.read(MAX_OUTPUT_CHARS + 1)
-        output = combined[:MAX_OUTPUT_CHARS].decode("utf-8", errors="replace").strip()
-        if len(combined) > MAX_OUTPUT_CHARS:
-            output += "\n[output truncated]"
+        if stdout_size + stderr_size + 1 <= MAX_OUTPUT_CHARS:
+            stderr.seek(0)
+            combined = stdout.read() + b"\n" + stderr.read()
+            output = combined.decode("utf-8", errors="replace").strip()
+        elif not stderr_size:
+            output = stdout.read(MAX_OUTPUT_CHARS).decode("utf-8", errors="replace").strip()
+            if stdout_size > MAX_OUTPUT_CHARS:
+                output += "\n[output truncated]"
+        else:
+            # Leave room for the tail of stderr: test failures often put the
+            # useful error after a large success/progress log on stdout.
+            stdout_head = stdout.read(7500).decode("utf-8", errors="replace")
+            stderr.seek(max(0, stderr_size - 3500))
+            stderr_tail = stderr.read().decode("utf-8", errors="replace")
+            parts = [stdout_head]
+            if stdout_size > 7500:
+                parts.append("[stdout truncated; use read_output for the full log]")
+            if stderr_size:
+                parts.append("--- stderr" + (" tail" if stderr_size > 3500 else "") + " ---")
+                parts.append(stderr_tail)
+            output = "\n".join(parts).strip()
         message = (f"exit_code: {proc.returncode}\n" + archive_notice
                    + (f"command timed out after {timeout}s\n" if timed_out else "")
                    + (output or "(no output)"))
