@@ -12,6 +12,10 @@ $envFile = Join-Path $repoRoot '.env'
 if (-not (Test-Path -LiteralPath $envFile)) {
     throw 'Create a local .env with DEEPSEEK_API_KEY before running this demo.'
 }
+docker image inspect cobalt/python:3.11 *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw 'Build the demo image first: docker build -t cobalt/python:3.11 -f docker/Dockerfile .'
+}
 
 $workspace = Join-Path ([System.IO.Path]::GetTempPath()) ('cobalt-demo-' + [guid]::NewGuid().ToString('N'))
 Copy-Item -LiteralPath (Join-Path $repoRoot 'benchmarks\fixtures\grades') -Destination $workspace -Recurse
@@ -27,15 +31,27 @@ try {
         if ($LASTEXITCODE -eq 0) { throw 'The fixture unexpectedly passes before repair.' }
 
         Write-Output 'Request: fix the empty average, preserve normal behavior, run tests.'
-        & $PythonBin -m cobalt --workspace $workspace --env-file $envFile --yes `
+        $agentOutput = & $PythonBin -m cobalt --workspace $workspace --env-file $envFile `
+            --execution container --yes `
             'The grade average function crashes on an empty collection. Make it return 0.0 for empty input without changing its normal behavior. Run the tests afterward.'
         if ($LASTEXITCODE -ne 0) { throw 'Cobalt command failed.' }
+        $agentOutput | Write-Output
+        $isolationLine = $agentOutput | Where-Object { $_ -like 'Isolated workspace: *' } | Select-Object -First 1
+        if (-not $isolationLine) { throw 'Cobalt did not report its isolated workspace.' }
+        $isolatedWorkspace = $isolationLine.Substring('Isolated workspace: '.Length)
+        $env:PYTHONPATH = $isolatedWorkspace
 
         Write-Output 'Independent verifier:'
-        & $PythonBin -m unittest discover -s (Join-Path $repoRoot 'benchmarks\verifiers\grades') -q
-        if ($LASTEXITCODE -ne 0) { throw 'Independent verifier failed.' }
+        Push-Location $isolatedWorkspace
+        try {
+            & $PythonBin -m unittest discover -s (Join-Path $repoRoot 'benchmarks\verifiers\grades') -q
+            if ($LASTEXITCODE -ne 0) { throw 'Independent verifier failed.' }
+        }
+        finally {
+            Pop-Location
+        }
 
-        $record = Get-ChildItem -LiteralPath (Join-Path $workspace '.cobalt\runs') -Filter result.json -Recurse |
+        $record = Get-ChildItem -LiteralPath (Join-Path $isolatedWorkspace '.cobalt\runs') -Filter result.json -Recurse |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
         $result = Get-Content -LiteralPath $record.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
         Write-Output ("Outcome: " + $result.status + "; tool calls: " + $result.tool_calls)

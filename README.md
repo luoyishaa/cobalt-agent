@@ -22,24 +22,28 @@ providers, set `COBALT_PROVIDER` and that provider's key in `.env`. Set
 `COBALT_MODEL_TIER=pro` or `COBALT_MODEL_ID` for an exact model. CLI flags
 `--provider`, `--model`, and `--base-url` override those settings. Available
 presets and important protocol limits are in [provider documentation](docs/PROVIDERS.md).
-For interactive mode, omit the question. File edits and commands ask for approval
-unless `--yes` is set.
+For interactive mode, omit the question. Local file edits and commands ask for
+approval. `--yes` requires `--execution container`.
 The default is `deepseek-flash` through DeepSeek's chat completions API.
 Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
-Commands run on the local host. `--yes` skips approval prompts, so use it only
-in a disposable environment when the repository or task is untrusted.
+Local commands run on the host after individual approval. Container mode copies
+the repository into an isolated task directory and runs commands in an existing
+Docker image with no network access. The original repository is not edited in
+container mode. Read [execution and task checks](docs/EXECUTION.md) for image
+setup, task files, reports, and limits.
 
 ## Run the demo
 
 On Windows, after configuring a local `.env`, run:
 
 ```powershell
+docker build -t cobalt/python:3.11 -f docker/Dockerfile .
 .\scripts\demo.ps1
 ```
 
 The script copies a small broken project into a temporary directory, confirms
-its test fails, asks Cobalt to repair it, then runs a verifier outside the
-agent's workspace. It prints the workspace and run-record paths so the result
+its test fails, asks Cobalt to repair an isolated copy, then runs a verifier
+outside the agent's workspace. It prints the workspace and run-record paths so the result
 can be inspected. The real model is nondeterministic; a successful demo run is
 one observed outcome, not a reliability estimate. API usage may incur charges.
 

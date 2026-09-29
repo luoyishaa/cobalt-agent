@@ -9,10 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from .domain import RunResult
+from .reports import initial_report
 
 
 class Journal:
     def __init__(self, root: Path, run_id: str):
+        self.root = root
         self.directory = root / ".cobalt" / "runs" / run_id
         self.directory.mkdir(parents=True, exist_ok=False)
         self.events_path = self.directory / "events.jsonl"
@@ -30,4 +32,5 @@ class Journal:
         path = self.directory / "result.json"
         path.write_text(json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         self.add("run_finished", status=result.status, tool_calls=result.tool_calls)
+        initial_report(self.root, result, self.directory)
         return path

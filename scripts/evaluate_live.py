@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cobalt.evaluation import run_case
+from cobalt.execution import DockerCommandRunner
 from cobalt.model import from_config
 from cobalt.model_config import resolve_config
 
@@ -21,10 +22,12 @@ def main() -> None:
     parser.add_argument("--case", action="append", help="Only run this case id; may be repeated")
     parser.add_argument("--allow-dirty", action="store_true", help="Run an exploratory check with uncommitted code")
     parser.add_argument("--without-output-retrieval", action="store_true", help="Ablate the saved-output read tool")
+    parser.add_argument("--image", default="cobalt/python:3.11", help="Existing isolated command image")
     args = parser.parse_args()
     if not 1 <= args.repeat <= 10:
         parser.error("--repeat must be 1..10")
     root = Path(__file__).resolve().parents[1]
+    DockerCommandRunner(root, args.image)
     config = resolve_config(env_file=root / ".env", provider=args.provider, model=args.model)
     data = json.loads((root / "benchmarks" / "cases.json").read_text(encoding="utf-8"))
     cases = [case for case in data["cases"] if not args.case or case["id"] in args.case]
@@ -42,7 +45,8 @@ def main() -> None:
     for case in cases:
         for attempt in range(1, args.repeat + 1):
             row = run_case(case, root / "benchmarks", lambda: from_config(config),
-                           output_retrieval=not args.without_output_retrieval)
+                           output_retrieval=not args.without_output_retrieval,
+                           command_image=args.image)
             row["attempt"] = attempt
             rows.append(row)
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=False)
@@ -50,6 +54,7 @@ def main() -> None:
         "at": datetime.now(UTC).isoformat(),
         "provider": config.provider,
         "model": config.model,
+        "command_image": args.image,
         "output_retrieval_enabled": not args.without_output_retrieval,
         "repeats_per_case": args.repeat,
         "commit": commit.stdout.strip() if commit.returncode == 0 else "uncommitted",

@@ -11,6 +11,18 @@ from cobalt.workspace import Workspace
 
 
 class OutputRetrievalTests(unittest.TestCase):
+    def test_saved_output_can_be_rediscovered_after_call_id_is_lost(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gate = ToolGate(Workspace(Path(directory)), lambda _n, _a: True)
+            first = gate.execute("run_command", {"argv": [sys.executable, "-c", "print('RECOVER_ME')"]})
+            self.assertEqual(first.status, "ok")
+            index = gate.execute("list_outputs", {})
+            self.assertEqual(index.status, "ok")
+            output_id = re.search(r"output-[a-f0-9]{32}", index.message)
+            self.assertIsNotNone(output_id)
+            restored = gate.execute("read_output", {"output_id": output_id.group()})
+            self.assertIn("RECOVER_ME", restored.message)
+
     def test_archive_failure_does_not_hide_that_command_already_ran(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import json
+import re
+import shutil
 import sys
 from pathlib import Path
 
 from .engine import Agent
+from .execution import DockerCommandRunner
+from .isolation import is_isolated_workspace, prepare_isolated_workspace
 from .model import from_config
 from .model_config import resolve_config
+from .reports import save_report
 from .session import SessionStore
+from .task import capture_protected, evaluate_task, load_task
 from .tools import ToolGate
 from .workspace import Workspace
 
@@ -49,12 +56,81 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-tool-calls", type=int, default=16)
     parser.add_argument("--mode", choices=("ask", "code"), default="code", help="Ask is read-only; code can request edits")
     parser.add_argument("--resume", default=None, help="Session id or 'latest' from this workspace")
-    parser.add_argument("--yes", action="store_true", help="Approve file edits and commands without asking")
+    parser.add_argument("--execution", choices=("local", "container"), default="local",
+                        help="Commands run locally with approval, or in an isolated Docker task copy")
+    parser.add_argument("--image", default="cobalt/python:3.11", help="Existing image for container execution")
+    parser.add_argument("--container-env", action="append", default=[], metavar="NAME=VALUE",
+                        help="Explicit non-secret variable inside the command container; may be repeated")
+    parser.add_argument("--yes", action="store_true", help="Approve actions automatically; requires container execution")
+    parser.add_argument("--task-file", type=Path, help="JSON task with request, checks, and protected_paths")
+    parser.add_argument("--report", metavar="RUN_ID", help="Show a saved run report without contacting a model")
+    parser.add_argument("--doctor", action="store_true", help="Check local installation and container availability")
     args = parser.parse_args(argv)
     if args.max_tool_calls < 1:
         parser.error("--max-tool-calls must be positive")
+    if args.yes and args.execution != "container":
+        parser.error("--yes requires --execution container; local commands need individual approval")
+    if args.task_file and args.question:
+        parser.error("provide a question or --task-file, not both")
+    container_env = {}
+    for entry in args.container_env:
+        name, separator, value = entry.partition("=")
+        if not separator:
+            parser.error("--container-env needs NAME=VALUE")
+        container_env[name] = value
+    if args.doctor:
+        print(f"Python: {sys.version.split()[0]}")
+        print(f"Git: {shutil.which('git') or 'unavailable'}")
+        try:
+            DockerCommandRunner(args.workspace, args.image, container_env=container_env)
+        except (ValueError, OSError) as exc:
+            print(f"Container: {exc}")
+            return 2
+        else:
+            print(f"Container: ready ({args.image})")
+        return 0
+    if args.report:
+        if not re.fullmatch(r"run-[a-f0-9]{12}", args.report):
+            parser.error("--report needs a run ID such as run-012345abcdef")
+        try:
+            saved = json.loads((args.workspace / ".cobalt" / "runs" / args.report / "report.json")
+                               .read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            print(f"Report unavailable: {exc}", file=sys.stderr)
+            return 2
+        if not isinstance(saved, dict) or not {"agent_status", "validation_status", "validation_source",
+                                               "tool_counts", "patch_bytes", "patch_warnings"} <= set(saved):
+            print("Report unavailable: incomplete report.json", file=sys.stderr)
+            return 2
+        print(f"Execution: {saved['agent_status']}")
+        print(f"Validation: {saved['validation_status']} ({saved['validation_source']})")
+        print(f"Tool calls: {saved['tool_counts']}")
+        print(f"Patch bytes: {saved['patch_bytes']}; warnings: {saved['patch_warnings']}")
+        print(f"Agent-selected checks: {saved.get('verified_commands', [])}")
+        print(f"Checks after last change: {[(check['argv'], check['status']) for check in saved.get('checks_after_last_change', [])]}")
+        for check in saved.get("checks", []):
+            print(f"User check: {check['status']} {check['argv']}")
+        if saved.get("protected_paths_changed"):
+            print(f"Protected paths changed: {saved['protected_paths_changed']}")
+        print(f"Final patch: {args.workspace / '.cobalt' / 'runs' / args.report / 'final.patch'}")
+        return 0
     try:
-        workspace = Workspace(args.workspace)
+        task = load_task(args.task_file) if args.task_file else None
+        source = Workspace(args.workspace)
+        if args.execution == "container":
+            # Check the runtime before copying large repositories or resolving credentials.
+            DockerCommandRunner(source.root, args.image, container_env=container_env)
+            if args.resume:
+                if not is_isolated_workspace(source.root):
+                    raise ValueError("resume in container mode requires the isolated workspace printed by the earlier run")
+                isolated = source.root
+            else:
+                isolated = prepare_isolated_workspace(source.root)
+            workspace = Workspace(isolated, command_runner=DockerCommandRunner(
+                isolated, args.image, container_env=container_env))
+            print(f"Isolated workspace: {isolated}")
+        else:
+            workspace = source
         config = resolve_config(env_file=args.env_file, provider=args.provider,
                                 model=args.model, base_url=args.base_url)
         model = from_config(config)
@@ -68,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
             print("No session to resume", file=sys.stderr)
             return 2
     try:
+        protected_before = capture_protected(workspace, task) if task else {}
         agent = Agent(
             workspace, model, ToolGate(workspace, _approval(args.yes), read_only=args.mode == "ask"),
             max_tool_calls=args.max_tool_calls, resume=resume,
@@ -76,14 +153,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Session error: {exc}", file=sys.stderr)
         return 2
 
-    def ask(question: str) -> None:
-        result = agent.ask(question)
-        print(result.answer)
-        print(f"\n[{result.status}] session: {result.session_id} run: {workspace.root / '.cobalt' / 'runs' / result.run_id}")
+    approval = _approval(args.yes)
 
-    if args.question:
-        ask(" ".join(args.question))
-        return 0
+    def ask(question: str) -> int:
+        result = agent.ask(question)
+        report_path = workspace.root / ".cobalt" / "runs" / result.run_id
+        report = json.loads((report_path / "report.json").read_text(encoding="utf-8"))
+        report["execution_mode"] = args.execution
+        if args.execution == "container":
+            report["container_image"] = args.image
+            report["container_image_id"] = workspace.command_runner.image_id.decode("ascii").strip()
+            report["container_env_names"] = sorted(container_env)
+        if task:
+            report.update(evaluate_task(workspace, result, task, protected_before, approval))
+        save_report(report_path, report)
+        print(result.answer)
+        print(f"\nExecution: {result.status}; validation: {report['validation_status']} "
+              f"({report['validation_source']})")
+        print(f"Session: {result.session_id}; report: {report_path / 'report.json'}")
+        return 0 if result.status == "completed" and (not task or report["validation_status"] == "passed") else 1
+
+    if args.question or task:
+        return ask(task.request if task else " ".join(args.question))
     print(f"Cobalt in {workspace.root}. Type /exit to stop.")
     while True:
         try:

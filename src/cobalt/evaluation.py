@@ -17,6 +17,7 @@ from typing import Any
 
 from .domain import ToolOutcome
 from .engine import Agent
+from .execution import DockerCommandRunner
 from .model import Model
 from .tools import ToolGate
 from .workspace import Workspace
@@ -60,7 +61,7 @@ class EvaluationGate(ToolGate):
 
 
 def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[[], Model],
-             *, output_retrieval: bool = True) -> dict[str, Any]:
+             *, output_retrieval: bool = True, command_image: str | None = None) -> dict[str, Any]:
     source = (fixtures_root / case["fixture"]).resolve()
     if not source.is_dir() or not source.is_relative_to(fixtures_root.resolve()):
         raise ValueError("case fixture is missing or outside fixture root")
@@ -87,7 +88,9 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             if baseline_exit == 0:
                 raise ValueError("repair case already passes its external verifier before the agent runs")
         original_tests = test_sources(workspace_path)
-        workspace = Workspace(workspace_path)
+        workspace = Workspace(workspace_path, command_runner=(
+            DockerCommandRunner(workspace_path, command_image) if command_image else None
+        ))
         agent = Agent(workspace, model_factory(), EvaluationGate(workspace, output_retrieval), max_tool_calls=12)
         started = time.monotonic()
         result = agent.ask(case["request"])

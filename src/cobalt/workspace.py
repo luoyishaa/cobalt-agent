@@ -9,20 +9,17 @@ from __future__ import annotations
 
 import hashlib
 import os
-import shutil
-import signal
 import stat
 import subprocess
 import tempfile
 from pathlib import Path
 
 from .domain import ToolOutcome
-from .outputs import OutputStore
+from .execution import CommandRunner, LocalCommandRunner
 from .snapshots import Snapshot, capture
 
 SKIP_DIRS = {".git", ".cobalt", ".venv", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", ".mypy_cache"}
 MAX_READ_BYTES = 128_000
-MAX_OUTPUT_CHARS = 12_000
 
 
 def private_name(name: str) -> bool:
@@ -35,10 +32,11 @@ def digest_bytes(data: bytes) -> str:
 
 
 class Workspace:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, command_runner: CommandRunner | None = None):
         self.root = root.expanduser().resolve(strict=True)
         if not self.root.is_dir():
             raise ValueError("workspace root must be a directory")
+        self.command_runner = command_runner or LocalCommandRunner(self.root)
 
     def snapshot(self) -> Snapshot:
         return capture(self.root, SKIP_DIRS, private_name)
@@ -76,7 +74,7 @@ class Workspace:
             status = result.stdout.strip() if result.returncode == 0 else "no Git status"
         except (OSError, subprocess.TimeoutExpired):
             status = "Git status unavailable"
-        return f"Workspace: {self.root}\nGit status: {status or 'clean'}\n{names}"
+        return f"Workspace: {self.command_runner.display_root}\nGit status: {status or 'clean'}\n{names}"
 
     def list_files(self, relative: str = ".", *, max_entries: int = 100) -> ToolOutcome:
         path = self.root if relative == "." else self._path(relative, must_exist=True)
@@ -190,74 +188,4 @@ class Workspace:
                 os.unlink(name)
 
     def run_command(self, argv: list[str], *, timeout: int = 60) -> ToolOutcome:
-        if not argv or any(not isinstance(arg, str) or not arg for arg in argv):
-            raise ValueError("argv must be a non-empty list of strings")
-        if not 1 <= timeout <= 120:
-            raise ValueError("timeout must be 1..120 seconds")
-        executable = shutil.which(argv[0])
-        if os.name == "nt" and executable and Path(executable).suffix.lower() in {".bat", ".cmd"}:
-            raise ValueError("batch files are not supported by the no-shell command tool")
-        env_names = ("PATH", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "TMP", "TEMP", "HOME", "USERPROFILE")
-        env = {name: os.environ[name] for name in env_names if name in os.environ}
-        flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-        # Temporary files bound memory use even when a command prints indefinitely.
-        with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
-            proc = subprocess.Popen(
-                argv, cwd=self.root, env=env, stdin=subprocess.DEVNULL,
-                stdout=stdout, stderr=stderr, creationflags=flags,
-                start_new_session=os.name != "nt",
-            )
-            timed_out = False
-            try:
-                proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                self._stop_process_tree(proc)
-                timed_out = True
-            try:
-                output_id = OutputStore(self.root).save(stdout, stderr, exit_code=proc.returncode, timed_out=timed_out)
-                archive_notice = (
-                    f"output_id: {output_id}\n"
-                    "Use read_output with this ID to search or page through the original output; do not rerun for logs.\n"
-                )
-            except (OSError, ValueError) as exc:
-                # A storage failure happens after the effect; preserve the actual command outcome.
-                archive_notice = (
-                    f"output archive unavailable ({type(exc).__name__}). Command already finished. "
-                    "Do not rerun merely to recover logs; only the following bounded preview is available.\n"
-                )
-            stdout.seek(0)
-            stderr.seek(0)
-            combined = stdout.read(MAX_OUTPUT_CHARS + 1) + b"\n" + stderr.read(MAX_OUTPUT_CHARS + 1)
-            output = combined[:MAX_OUTPUT_CHARS].decode("utf-8", errors="replace").strip()
-            if len(combined) > MAX_OUTPUT_CHARS:
-                output += "\n[output truncated]"
-            message = (
-                f"exit_code: {proc.returncode}\n" + archive_notice
-                + (f"command timed out after {timeout}s\n" if timed_out else "")
-                + (output or "(no output)")
-            )
-            success = proc.returncode == 0 and not timed_out
-            return ToolOutcome("ok" if success else "error", message, verified=success)
-
-    @staticmethod
-    def _stop_process_tree(proc: subprocess.Popen) -> None:
-        if proc.poll() is not None:
-            return
-        if os.name == "nt":
-            try:
-                subprocess.run(
-                    ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    timeout=5, check=False,
-                )
-            except (OSError, subprocess.TimeoutExpired):
-                proc.kill()
-        else:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        return self.command_runner.run(argv, timeout=timeout)

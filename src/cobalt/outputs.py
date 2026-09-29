@@ -61,6 +61,29 @@ class OutputStore:
                 temporary.rmdir()
         return output_id
 
+    def list(self, *, limit: int = 100) -> ToolOutcome:
+        """Rediscover archived command output without rerunning a command."""
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be 1..100")
+        entries: list[str] = []
+        directory = self._directory()
+        candidates = sorted(directory.iterdir(), key=lambda path: path.stat().st_mtime, reverse=True)
+        for candidate in candidates:
+            if not re.fullmatch(r"output-[a-f0-9]{32}", candidate.name) or candidate.is_symlink():
+                continue
+            metadata_path = candidate / "metadata.json"
+            if metadata_path.is_symlink() or not metadata_path.is_file():
+                continue
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                entries.append(f"{candidate.name} exit_code={metadata['exit_code']} "
+                               f"bytes={metadata['bytes']} timed_out={metadata['timed_out']}")
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+            if len(entries) >= limit:
+                break
+        return ToolOutcome("ok", "\n".join(entries) or "(no saved outputs)")
+
     def read(self, output_id: str, *, offset: int = 0, limit: int = 4000,
              query: str | None = None) -> ToolOutcome:
         if not re.fullmatch(r"output-[a-f0-9]{32}", output_id):

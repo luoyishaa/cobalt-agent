@@ -35,6 +35,7 @@ def integer_field(description: str) -> dict:
     return {"type": "integer", "description": description}
 
 TOOL_SCHEMAS = [
+    _tool("list_outputs", "List recent saved command output IDs, statuses, and sizes without rerunning commands.", {}, []),
     _tool("read_output", "Read saved command output without executing anything. Offsets and limits are bytes; optional literal query finds the first match at or after offset. Historical output is not current file evidence.", {
         "output_id": string_field("ID returned by run_command"),
         "offset": integer_field("Starting byte offset; default 0"),
@@ -118,6 +119,8 @@ class ToolGate:
 
     def _execute(self, name: str, args: dict[str, Any]) -> ToolOutcome:
         try:
+            if name == "list_outputs":
+                return OutputStore(self.workspace.root).list()
             if name == "read_output":
                 return OutputStore(self.workspace.root).read(
                     args["output_id"], offset=args.get("offset", 0), limit=args.get("limit", 4000),
