@@ -12,7 +12,20 @@ one-commit Git baseline. File edits and commands operate on that copy; the
 original repository is untouched. Review `final.patch` in the printed run
 directory before applying a change to the original repository. To resume a
 container run, pass the printed isolated workspace to `--workspace` with
-`--resume latest` and the same image.
+`--resume latest` and the same image. If the previous run stopped at the tool
+limit or a model error, add `--continue` to carry its original request
+and changed-file obligations into a new run:
+
+```powershell
+python -m cobalt --workspace path\to\isolated-copy --execution container --image IMAGE --yes --resume latest --continue
+```
+
+Continuation has a new tool-call budget. It requires fresh reads of files
+changed by earlier segments and a fresh check; a check from the previous run
+does not certify the continued run. The saved report links to the preceding
+run. Interrupted commands still require inspection and cannot be replayed
+automatically. For a structured task, pass its unchanged `--task-file` again;
+the original protected-file hashes remain the comparison baseline.
 
 The default image is `cobalt/python:3.11`. Build it once with:
 
@@ -54,6 +67,11 @@ chosen by the agent as `self_checked`. For repeatable tasks, supply a JSON file:
 }
 ```
 
+The agent sees the request, acceptance commands, and protected-file list
+before editing. After its turn, Cobalt runs the commands independently and
+labels their results as user-specified validation. The agent's own checks and
+the independent result remain separate in the report.
+
 ```powershell
 python -m cobalt --workspace path\to\repo --task-file task.json
 python -m cobalt --workspace path\to\repo --report run-012345abcdef
@@ -65,6 +83,10 @@ validation. User-provided checks are run after the agent, and changes to
 protected files fail validation. Without explicit checks, `completed` says only
 that the agent finished its run. A passing check proves that command succeeded
 on the observed workspace; it does not prove every requirement was covered.
+The `exploration` section records the first observed change, calls before it,
+successful source reads, fully repeated requested ranges on unchanged file versions, and
+repeat listing/search calls. These are diagnostic counts, not a quality score:
+an agent may need to reread a file before editing it.
 
 ## Public issue protocol
 

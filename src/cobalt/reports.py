@@ -54,10 +54,53 @@ def final_patch(root: Path) -> tuple[str, list[str]]:
     return patch, warnings
 
 
+def exploration_metrics(events: list[dict[str, Any]]) -> dict[str, int | None]:
+    """Measure navigation without treating repeat reads as necessarily wasteful."""
+    calls = 0
+    first_change_call = None
+    source_read_calls = 0
+    fully_repeated_source_reads = 0
+    repeated_discovery_calls = 0
+    seen_lines: dict[tuple[str, str], set[int]] = {}
+    seen_discovery: set[tuple[str, str]] = set()
+    for event in events:
+        if event.get("kind") != "tool_finished":
+            continue
+        calls += 1
+        name = event.get("name")
+        if name == "read_file" and event.get("status") == "ok" and event.get("path") and event.get("digest"):
+            source_read_calls += 1
+            args = event.get("args", {})
+            start, lines = args.get("start", 1), args.get("lines", 160)
+            if isinstance(start, int) and isinstance(lines, int) and start > 0 and lines > 0:
+                requested = set(range(start, start + lines))
+                covered = seen_lines.setdefault((event["path"], event["digest"]), set())
+                if requested <= covered:
+                    fully_repeated_source_reads += 1
+                covered.update(requested)
+        elif name in {"search", "list_files"} and event.get("status") == "ok":
+            key = (name, json.dumps(event.get("args", {}), sort_keys=True, ensure_ascii=False))
+            if key in seen_discovery:
+                repeated_discovery_calls += 1
+            seen_discovery.add(key)
+        if event.get("changes"):
+            if first_change_call is None:
+                first_change_call = calls
+            seen_discovery.clear()
+    return {
+        "calls_before_first_change": first_change_call - 1 if first_change_call is not None else calls,
+        "first_change_call": first_change_call,
+        "source_read_calls": source_read_calls,
+        "fully_repeated_source_reads": fully_repeated_source_reads,
+        "repeated_discovery_calls": repeated_discovery_calls,
+    }
+
+
 def initial_report(root: Path, result: RunResult, directory: Path) -> dict[str, Any]:
     patch, warnings = final_patch(root)
     (directory / "final.patch").write_bytes(patch.encode("utf-8"))
     events = [json.loads(line) for line in (directory / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    continuation = next((event for event in events if event["kind"] == "run_continued"), None)
     tool_counts: dict[str, int] = {}
     last_modified_index = max((index for index, event in enumerate(events)
                                if event["kind"] == "tool_finished" and event.get("changes")), default=-1)
@@ -78,6 +121,8 @@ def initial_report(root: Path, result: RunResult, directory: Path) -> dict[str, 
     report = {
         "run_id": result.run_id,
         "session_id": result.session_id,
+        "continued_from_run": continuation["previous_run_id"] if continuation else None,
+        "inherited_changed_paths": continuation["inherited_changed_paths"] if continuation else [],
         "agent_status": result.status,
         "validation_status": "self_checked" if result.verified_commands else "not_checked",
         "validation_source": "agent_selected" if result.verified_commands else "none",
@@ -85,6 +130,7 @@ def initial_report(root: Path, result: RunResult, directory: Path) -> dict[str, 
         "checks_after_last_change": check_evidence,
         "last_change_at": events[last_modified_index]["at"] if last_modified_index >= 0 else None,
         "tool_counts": tool_counts,
+        "exploration": exploration_metrics(events),
         "changed_paths": result.changed_paths,
         "post_edit_reads_complete": not result.unrefreshed_paths,
         "observation_errors": result.observation_errors,

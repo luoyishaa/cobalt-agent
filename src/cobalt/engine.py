@@ -17,6 +17,7 @@ from .journal import Journal
 from .model import Model, ModelOutputError
 from .session import (
     SessionStore,
+    UnfinishedTask,
     close_interrupted_calls,
     interrupted_commands,
     recovery_inspection_call_ids,
@@ -60,7 +61,7 @@ class Agent:
         self.sessions = SessionStore(workspace.root)
         self.session_id = resume or self.sessions.new_id()
         if resume:
-            self.messages, observations, self.recovery_resolved = self.sessions.load_state(resume)
+            self.messages, observations, self.recovery_resolved, self.unfinished_task = self.sessions.load_state(resume)
             self.evidence = EvidenceBook(observations)
             newly_interrupted = close_interrupted_calls(self.messages)
             self.recovered_calls = uninspected_interrupted_calls(self.messages, self.recovery_resolved)
@@ -71,6 +72,7 @@ class Agent:
             self.evidence = EvidenceBook()
             self.recovered_calls = []
             self.recovery_resolved: set[str] = set()
+            self.unfinished_task: UnfinishedTask | None = None
         self.interrupted_commands = interrupted_commands(self.messages)
 
     def _model_context(self, retry_hint: str = "") -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
@@ -98,20 +100,40 @@ class Agent:
 
     def _save_session(self) -> None:
         self.sessions.save(self.session_id, self.messages, self.evidence.observations,
-                           recovery_resolved=self.recovery_resolved)
+                           recovery_resolved=self.recovery_resolved,
+                           unfinished_task=self.unfinished_task)
 
-    def ask(self, question: str) -> RunResult:
+    def continue_task(self) -> RunResult:
+        if self.unfinished_task is None:
+            raise ValueError("this session has no unfinished task to continue")
+        return self.ask(self.unfinished_task.request, continue_previous=True)
+
+    def ask(self, question: str, *, continue_previous: bool = False) -> RunResult:
         if not question.strip():
             raise ValueError("question must not be empty")
+        previous = self.unfinished_task if continue_previous else None
+        if continue_previous and previous is None:
+            raise ValueError("this session has no unfinished task to continue")
+        if not continue_previous:
+            self.unfinished_task = None
+        task_request = previous.request if previous else question
+        if previous:
+            question = ("Continue the unfinished task from this session. Reinspect the current files and "
+                        "check the final behavior. Original request:\n" + task_request)
         run_id = "run-" + uuid.uuid4().hex[:12]
         journal = Journal(self.workspace.root, run_id)
         journal.add("run_started", question=question)
+        if previous:
+            journal.add("run_continued", previous_run_id=previous.last_run_id,
+                        inherited_changed_paths=list(previous.changed_paths))
         if self.recovered_calls:
             journal.add("session_recovered", interrupted_call_ids=self.recovered_calls)
         self.messages.append({"role": "user", "content": question})
         self._save_session()
-        changed_paths: list[str] = []
-        pending_refresh: set[str] = set()
+        last_snapshot = self.workspace.snapshot()
+        changed_paths: list[str] = list(previous.changed_paths) if previous else []
+        # A prior run's read/check evidence cannot certify the current process.
+        pending_refresh: set[str] = {path for path in changed_paths if path in last_snapshot.files}
         read_spans: list[ReadSpan] = []
         verified_commands: list[list[str]] = []
         calls_used = 0
@@ -121,9 +143,15 @@ class Agent:
         malformed_responses = 0
         finalization_retries = 0
         retry_hint = ""
-        last_snapshot = self.workspace.snapshot()
         observation_errors = list(last_snapshot.errors)
         verification_fingerprint = None
+
+        def finish(result: RunResult) -> RunResult:
+            self.unfinished_task = (UnfinishedTask(task_request, tuple(changed_paths), run_id)
+                                    if result.status in {"limit", "model_error"} else None)
+            journal.finish(result)
+            self._save_session()
+            return result
 
         def register_changes(changes):
             nonlocal verification_fingerprint
@@ -170,9 +198,7 @@ class Agent:
                         "context_limit", calls_used, changed_paths, verified_commands,
                         prompt_tokens, completion_tokens, self.session_id,
                     )
-                    journal.finish(result)
-                    self._save_session()
-                    return result
+                    return finish(result)
                 turn: ModelTurn = self.model.complete(prompt_messages, self.tools.schemas())
                 retry_hint = ""
             except ModelOutputError as exc:
@@ -186,9 +212,7 @@ class Agent:
                     changed_paths, verified_commands, prompt_tokens, completion_tokens,
                     self.session_id,
                 )
-                journal.finish(result)
-                self._save_session()
-                return result
+                return finish(result)
             except Exception as exc:  # noqa: BLE001 - this is the outer model failure boundary
                 result = RunResult(
                     run_id, f"Model request failed: {exc}", "model_error", calls_used,
@@ -196,9 +220,7 @@ class Agent:
                     self.session_id,
                 )
                 journal.add("model_failed", error=str(exc))
-                journal.finish(result)
-                self._save_session()
-                return result
+                return finish(result)
             prompt_tokens += turn.prompt_tokens or 0
             completion_tokens += turn.completion_tokens or 0
             # A human or background process can change files while the model is responding.
@@ -218,9 +240,7 @@ class Agent:
                     verification_fingerprint=verification_fingerprint,
                     observation_errors=observation_errors,
                 )
-                journal.finish(result)
-                self._save_session()
-                return result
+                return finish(result)
             if self.recovered_calls:
                 candidates = recovery_inspection_call_ids(self.messages, self.recovered_calls)
                 visible = {message.get("tool_call_id") for message in prompt_messages
@@ -295,9 +315,7 @@ class Agent:
                     verification_fingerprint, observation_errors,
                     model_answer=model_answer,
                 )
-                journal.finish(result)
-                self._save_session()
-                return result
+                return finish(result)
             self.messages.append({
                 "role": "assistant", "content": turn.text or None,
                 "tool_calls": [
@@ -383,7 +401,8 @@ class Agent:
                     "role": "tool", "tool_call_id": call.call_id, "content": outcome_text,
                 })
                 self._save_session()
-        answer = "Stopped at the tool call limit. Review the run log before continuing."
+        answer = ("Stopped at the tool call limit. Review the run log, then use "
+                  f"--resume {self.session_id} --continue in the same workspace to continue.")
         result = RunResult(
             run_id, answer, "limit", calls_used, changed_paths,
             verified_commands, prompt_tokens, completion_tokens,
@@ -392,6 +411,4 @@ class Agent:
             verification_fingerprint=verification_fingerprint,
             observation_errors=observation_errors,
         )
-        journal.finish(result)
-        self._save_session()
-        return result
+        return finish(result)

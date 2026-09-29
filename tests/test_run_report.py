@@ -6,10 +6,34 @@ from pathlib import Path
 
 from cobalt.domain import RunResult
 from cobalt.journal import Journal
-from cobalt.reports import final_patch
+from cobalt.reports import exploration_metrics, final_patch
 
 
 class RunReportTests(unittest.TestCase):
+    def test_exploration_counts_repeated_ranges_and_change_boundary(self):
+        def read(start, lines, digest="original"):
+            return {"kind": "tool_finished", "name": "read_file", "status": "ok",
+                    "path": "app.py", "digest": digest, "args": {"start": start, "lines": lines},
+                    "changes": {}}
+
+        def search():
+            return {"kind": "tool_finished", "name": "search", "status": "ok",
+                    "args": {"query": "needle", "path": "src"}, "changes": {}}
+
+        events = [read(1, 20), read(5, 10), read(15, 20), search(), search(),
+                  {"kind": "tool_finished", "name": "replace_text", "status": "ok",
+                   "changes": {"app.py": "modified"}},
+                  read(1, 20, "updated"), search()]
+        self.assertEqual(exploration_metrics(events), {
+            "calls_before_first_change": 5,
+            "first_change_call": 6,
+            "source_read_calls": 4,
+            "fully_repeated_source_reads": 1,
+            "repeated_discovery_calls": 1,
+        })
+        self.assertIsNone(exploration_metrics(events[:5])["first_change_call"])
+        self.assertEqual(exploration_metrics(events[:5])["calls_before_first_change"], 5)
+
     def test_report_retains_last_edit_check_result(self):
         with tempfile.TemporaryDirectory() as directory:
             journal = Journal(Path(directory), "run-evidence")

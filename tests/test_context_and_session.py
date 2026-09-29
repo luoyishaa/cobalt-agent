@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -123,6 +124,110 @@ class ContextAndSessionTests(unittest.TestCase):
                 message.get("content") == "Is there a config file?"
                 for message in next_model.seen[0]
             ))
+
+    def test_call_limit_continuation_carries_task_and_requires_fresh_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = Workspace(root)
+            gate = ToolGate(workspace, lambda _name, _args: True)
+            first = Agent(workspace, ModelSequence([
+                ModelTurn("", (ToolCall("create", "create_file", {
+                    "path": "answer.txt", "content": "ready\n",
+                }),)),
+            ]), gate, max_tool_calls=1).ask("Create answer.txt and check it")
+            self.assertEqual(first.status, "limit")
+            self.assertEqual(first.changed_paths, ["answer.txt"])
+
+            resumed_model = ModelSequence([
+                ModelTurn("Done."),
+                ModelTurn("", (ToolCall("read", "read_file", {"path": "answer.txt"}),)),
+                ModelTurn("", (ToolCall("check", "run_command", {
+                    "argv": [sys.executable, "-c", "from pathlib import Path; assert Path('answer.txt').read_text() == 'ready\\n'"],
+                    "purpose": "check",
+                }),)),
+                ModelTurn("Created and checked answer.txt."),
+            ])
+            resumed = Agent(workspace, resumed_model, gate, max_tool_calls=3, resume=first.session_id)
+            result = resumed.continue_task()
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(result.changed_paths, ["answer.txt"])
+            self.assertTrue(any("Create answer.txt and check it" in str(message.get("content"))
+                                for message in resumed_model.seen[0]))
+            report = json.loads((root / ".cobalt" / "runs" / result.run_id / "report.json")
+                                .read_text(encoding="utf-8"))
+            self.assertEqual(report["continued_from_run"], first.run_id)
+            self.assertEqual(report["inherited_changed_paths"], ["answer.txt"])
+            self.assertEqual(report["validation_status"], "self_checked")
+            self.assertEqual(len(report["checks_after_last_change"]), 1)
+            self.assertIsNone(resumed.unfinished_task)
+
+    def test_a_second_limit_keeps_the_original_task_and_changed_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = Workspace(root)
+            gate = ToolGate(workspace, lambda _name, _args: True)
+            first = Agent(workspace, ModelSequence([
+                ModelTurn("", (ToolCall("create", "create_file", {
+                    "path": "answer.txt", "content": "ready\n",
+                }),)),
+            ]), gate, max_tool_calls=1).ask("Create and check answer.txt")
+            second = Agent(workspace, ModelSequence([
+                ModelTurn("", (ToolCall("read", "read_file", {"path": "answer.txt"}),)),
+            ]), gate, max_tool_calls=1, resume=first.session_id).continue_task()
+            self.assertEqual(second.status, "limit")
+            self.assertEqual(second.changed_paths, ["answer.txt"])
+            third_model = ModelSequence([
+                ModelTurn("", (ToolCall("read-again", "read_file", {"path": "answer.txt"}),)),
+                ModelTurn("", (ToolCall("check", "run_command", {
+                    "argv": [sys.executable, "-c", "from pathlib import Path; assert Path('answer.txt').read_text() == 'ready\\n'"],
+                    "purpose": "check",
+                }),)),
+                ModelTurn("Created and checked."),
+            ])
+            third = Agent(workspace, third_model, gate, max_tool_calls=3, resume=first.session_id)
+            final = third.continue_task()
+            self.assertEqual(final.status, "completed")
+            self.assertIn("Create and check answer.txt", str(third_model.seen[0][-1]["content"]))
+            report = json.loads((root / ".cobalt" / "runs" / final.run_id / "report.json")
+                                .read_text(encoding="utf-8"))
+            self.assertEqual(report["continued_from_run"], second.run_id)
+            self.assertEqual(report["inherited_changed_paths"], ["answer.txt"])
+
+    def test_schema_one_session_remains_readable_without_a_continuation_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SessionStore(Path(directory))
+            session_id = store.new_id()
+            path = store.save(session_id, [{"role": "system", "content": "rules"}], {})
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["schema"] = 1
+            data.pop("unfinished_task")
+            path.write_text(json.dumps(data), encoding="utf-8")
+            _messages, _observations, _resolved, unfinished = store.load_state(session_id)
+            self.assertIsNone(unfinished)
+
+    def test_model_error_can_resume_the_same_request_after_provider_recovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "fact.txt").write_text("present", encoding="utf-8")
+            workspace = Workspace(root)
+
+            class UnavailableModel:
+                def complete(self, _messages, _schemas):
+                    raise RuntimeError("provider unavailable")
+
+            first = Agent(workspace, UnavailableModel(), ToolGate(workspace, lambda _n, _a: False))
+            failed = first.ask("Inspect fact.txt")
+            self.assertEqual(failed.status, "model_error")
+            model = ModelSequence([
+                ModelTurn("", (ToolCall("read", "read_file", {"path": "fact.txt"}),)),
+                ModelTurn("fact.txt:1 contains present."),
+            ])
+            resumed = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False),
+                            resume=failed.session_id)
+            result = resumed.continue_task()
+            self.assertEqual(result.status, "completed")
+            self.assertTrue(any("Inspect fact.txt" in str(message.get("content"))
+                                for message in model.seen[0]))
 
     def test_resume_marks_unknown_tool_effect_without_repeating_it(self):
         with tempfile.TemporaryDirectory() as directory:

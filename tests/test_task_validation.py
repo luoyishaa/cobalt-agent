@@ -23,6 +23,10 @@ class TaskValidationTests(unittest.TestCase):
                 "protected_paths": ["tests/test_app.py"],
             }), encoding="utf-8")
             task = load_task(spec_path)
+            agent_request = task.agent_request()
+            self.assertIn("Repair app behavior", agent_request)
+            self.assertIn(json.dumps([sys.executable, "-c", "print('PASS')"]), agent_request)
+            self.assertIn("tests/test_app.py", agent_request)
             workspace = Workspace(root)
             baseline = capture_protected(workspace, task)
             protected.write_text("assert False\n", encoding="utf-8")

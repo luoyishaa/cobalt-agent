@@ -19,6 +19,17 @@ class TaskSpec:
     checks: tuple[tuple[str, ...], ...]
     protected_paths: tuple[str, ...]
 
+    def fingerprint(self) -> str:
+        contract = [self.request, self.checks, self.protected_paths]
+        return hashlib.sha256(json.dumps(contract, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+    def agent_request(self) -> str:
+        """Give the agent the public acceptance contract it can act on."""
+        commands = "\n".join(json.dumps(list(argv), ensure_ascii=False) for argv in self.checks)
+        protected = ", ".join(self.protected_paths) if self.protected_paths else "(none)"
+        return (f"{self.request}\n\nUser-specified acceptance checks (argv, run independently after your turn):\n"
+                f"{commands}\nProtected files that must not change: {protected}")
+
 
 def load_task(path: Path) -> TaskSpec:
     try:
