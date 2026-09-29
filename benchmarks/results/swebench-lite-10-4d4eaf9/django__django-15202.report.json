@@ -1,0 +1,57 @@
+{
+  "run_id": "run-b69de3b7c33f",
+  "session_id": "session-f6f1d737a11b",
+  "agent_status": "limit",
+  "validation_status": "not_checked",
+  "validation_source": "none",
+  "verified_commands": [],
+  "checks_after_last_change": [],
+  "last_change_at": "2026-09-29T12:50:32.903176+00:00",
+  "tool_counts": {
+    "read_file": 17,
+    "search": 7,
+    "run_command": 18,
+    "list_files": 3,
+    "replace_text": 2,
+    "read_output": 1
+  },
+  "changed_paths": [
+    "django/core/validators.py",
+    "tests/forms_tests/field_tests/test_urlfield.py"
+  ],
+  "post_edit_reads_complete": false,
+  "observation_errors": [],
+  "prompt_tokens": 690446,
+  "completion_tokens": 20311,
+  "patch_warnings": [],
+  "patch_bytes": 2676,
+  "result": {
+    "run_id": "run-b69de3b7c33f",
+    "answer": "Stopped at the tool call limit. Review the run log before continuing.",
+    "status": "limit",
+    "tool_calls": 48,
+    "changed_paths": [
+      "django/core/validators.py",
+      "tests/forms_tests/field_tests/test_urlfield.py"
+    ],
+    "verified_commands": [],
+    "prompt_tokens": 690446,
+    "completion_tokens": 20311,
+    "session_id": "session-f6f1d737a11b",
+    "unsupported_references": [],
+    "unrefreshed_paths": [
+      "django/core/validators.py",
+      "tests/forms_tests/field_tests/test_urlfield.py"
+    ],
+    "verification_fingerprint": null,
+    "observation_errors": [],
+    "model_answer": ""
+  },
+  "execution_mode": "container",
+  "container_image": "swebench/sweb.eval.x86_64.django_1776_django-15202:latest",
+  "container_image_id": "sha256:cb7a1d09bdb759cf97c7108cf0dc57d6c67ff2c6fd2a6be60cf56463abd4b083",
+  "container_env_names": [
+    "PATH",
+    "PYTHONPATH"
+  ]
+}

@@ -1,0 +1,67 @@
+{
+    "total_instances": 10,
+    "submitted_instances": 10,
+    "completed_instances": 6,
+    "resolved_instances": 4,
+    "unresolved_instances": 2,
+    "infra_failure_instances": 0,
+    "ambiguous_failure_instances": 0,
+    "empty_patch_instances": 4,
+    "error_instances": 0,
+    "completed_ids": [
+        "astropy__astropy-6938",
+        "django__django-15202",
+        "mwaskom__seaborn-3010",
+        "pallets__flask-5063",
+        "pylint-dev__pylint-7114",
+        "pytest-dev__pytest-9359"
+    ],
+    "incomplete_ids": [],
+    "empty_patch_ids": [
+        "matplotlib__matplotlib-25433",
+        "psf__requests-2674",
+        "pydata__xarray-4248",
+        "scikit-learn__scikit-learn-25747"
+    ],
+    "submitted_ids": [
+        "astropy__astropy-6938",
+        "django__django-15202",
+        "matplotlib__matplotlib-25433",
+        "mwaskom__seaborn-3010",
+        "pallets__flask-5063",
+        "psf__requests-2674",
+        "pydata__xarray-4248",
+        "pylint-dev__pylint-7114",
+        "pytest-dev__pytest-9359",
+        "scikit-learn__scikit-learn-25747"
+    ],
+    "resolved_ids": [
+        "astropy__astropy-6938",
+        "django__django-15202",
+        "mwaskom__seaborn-3010",
+        "pytest-dev__pytest-9359"
+    ],
+    "unresolved_ids": [
+        "pallets__flask-5063",
+        "pylint-dev__pylint-7114"
+    ],
+    "infra_failure_ids": [],
+    "ambiguous_failure_ids": [],
+    "failure_reasons": {},
+    "error_ids": [],
+    "schema_version": 2,
+    "unstopped_instances": 0,
+    "unstopped_containers": [],
+    "unremoved_images": [
+        "swebench/sweb.eval.x86_64.astropy_1776_astropy-6938:latest",
+        "swebench/sweb.eval.x86_64.django_1776_django-15202:latest",
+        "swebench/sweb.eval.x86_64.matplotlib_1776_matplotlib-25433:latest",
+        "swebench/sweb.eval.x86_64.mwaskom_1776_seaborn-3010:latest",
+        "swebench/sweb.eval.x86_64.pallets_1776_flask-5063:latest",
+        "swebench/sweb.eval.x86_64.psf_1776_requests-2674:latest",
+        "swebench/sweb.eval.x86_64.pydata_1776_xarray-4248:latest",
+        "swebench/sweb.eval.x86_64.pylint-dev_1776_pylint-7114:latest",
+        "swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-9359:latest",
+        "swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-25747:latest"
+    ]
+}

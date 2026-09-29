@@ -1,0 +1,86 @@
+diff --git a/src/flask/cli.py b/src/flask/cli.py
+index 37a15ff..2d5b879 100644
+--- a/src/flask/cli.py
++++ b/src/flask/cli.py
+@@ -22,6 +22,8 @@ from .helpers import get_debug_flag
+ from .helpers import get_load_dotenv
+ 
+ if t.TYPE_CHECKING:
++    from werkzeug.routing import Rule
++
+     from .app import Flask
+ 
+ 
+@@ -985,6 +987,28 @@ def shell_command() -> None:
+     code.interact(banner=banner, local=ctx)
+ 
+ 
++def _rule_domain(rule: Rule) -> str:
++    """Get the domain a URL rule is registered for.
++
++    If host matching is enabled, this is the rule's host. Otherwise it is
++    the rule's subdomain combined with ``SERVER_NAME``. If no server name
++    is configured, only the subdomain is shown.
++    """
++    if rule.host is not None:
++        return rule.host
++
++    subdomain = rule.subdomain or ""
++    server_name = current_app.config["SERVER_NAME"]
++
++    if server_name is None:
++        return subdomain
++
++    if subdomain:
++        return f"{subdomain}.{server_name}"
++
++    return server_name
++
++
+ @click.command("routes", short_help="Show the routes for the app.")
+ @click.option(
+     "--sort",
+@@ -1017,21 +1041,36 @@ def routes_command(sort: str, all_methods: bool) -> None:
+         ", ".join(sorted(rule.methods - ignored_methods))  # type: ignore
+         for rule in rules
+     ]
+-
+-    headers = ("Endpoint", "Methods", "Rule")
+-    widths = (
++    rule_domains = [_rule_domain(rule) for rule in rules]
++    # Only show the domain column when the app is configured with a server
++    # name or a rule is bound to a subdomain or host. Otherwise it would be
++    # empty for every row.
++    show_domain = current_app.config["SERVER_NAME"] is not None or any(rule_domains)
++
++    headers: tuple[str, ...] = ("Endpoint", "Methods", "Rule")
++    widths = [
+         max(len(rule.endpoint) for rule in rules),
+         max(len(methods) for methods in rule_methods),
+         max(len(rule.rule) for rule in rules),
+-    )
++    ]
++
++    if show_domain:
++        headers = ("Domain", *headers)
++        widths.insert(0, max(len(domain) for domain in rule_domains))
++
+     widths = [max(len(h), w) for h, w in zip(headers, widths)]
+-    row = "{{0:<{0}}}  {{1:<{1}}}  {{2:<{2}}}".format(*widths)
++    row = "  ".join(f"{{{i}:<{width}}}" for i, width in enumerate(widths))
+ 
+     click.echo(row.format(*headers).strip())
+     click.echo(row.format(*("-" * width for width in widths)))
+ 
+-    for rule, methods in zip(rules, rule_methods):
+-        click.echo(row.format(rule.endpoint, methods, rule.rule).rstrip())
++    for domain, rule, methods in zip(rule_domains, rules, rule_methods):
++        values: tuple[str, ...] = (rule.endpoint, methods, rule.rule)
++
++        if show_domain:
++            values = (domain, *values)
++
++        click.echo(row.format(*values).rstrip())
+ 
+ 
+ cli = FlaskGroup(

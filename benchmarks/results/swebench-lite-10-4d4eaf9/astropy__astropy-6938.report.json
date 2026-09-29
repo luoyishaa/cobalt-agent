@@ -1,0 +1,52 @@
+{
+  "run_id": "run-a26f46f2b9e8",
+  "session_id": "session-75e34fa6cc02",
+  "agent_status": "limit",
+  "validation_status": "not_checked",
+  "validation_source": "none",
+  "verified_commands": [],
+  "checks_after_last_change": [],
+  "last_change_at": "2026-09-29T12:38:53.985786+00:00",
+  "tool_counts": {
+    "search": 20,
+    "list_files": 1,
+    "read_file": 19,
+    "run_command": 5,
+    "read_output": 2,
+    "replace_text": 1
+  },
+  "changed_paths": [
+    "astropy/io/fits/fitsrec.py"
+  ],
+  "post_edit_reads_complete": true,
+  "observation_errors": [],
+  "prompt_tokens": 517639,
+  "completion_tokens": 9968,
+  "patch_warnings": [],
+  "patch_bytes": 565,
+  "result": {
+    "run_id": "run-a26f46f2b9e8",
+    "answer": "Stopped at the tool call limit. Review the run log before continuing.",
+    "status": "limit",
+    "tool_calls": 48,
+    "changed_paths": [
+      "astropy/io/fits/fitsrec.py"
+    ],
+    "verified_commands": [],
+    "prompt_tokens": 517639,
+    "completion_tokens": 9968,
+    "session_id": "session-75e34fa6cc02",
+    "unsupported_references": [],
+    "unrefreshed_paths": [],
+    "verification_fingerprint": null,
+    "observation_errors": [],
+    "model_answer": ""
+  },
+  "execution_mode": "container",
+  "container_image": "swebench/sweb.eval.x86_64.astropy_1776_astropy-6938:latest",
+  "container_image_id": "sha256:df08e1f996145c0819eec6fcff68c5c38b9188b9fe77116c820bb935ed7826ca",
+  "container_env_names": [
+    "PATH",
+    "PYTHONPATH"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "run_id": "run-b426b1778741",
+  "session_id": "session-30911a6d2f99",
+  "agent_status": "limit",
+  "validation_status": "not_checked",
+  "validation_source": "none",
+  "verified_commands": [],
+  "checks_after_last_change": [],
+  "last_change_at": null,
+  "tool_counts": {
+    "read_file": 31,
+    "search": 12,
+    "run_command": 4,
+    "read_output": 1
+  },
+  "changed_paths": [],
+  "post_edit_reads_complete": true,
+  "observation_errors": [],
+  "prompt_tokens": 541741,
+  "completion_tokens": 6947,
+  "patch_warnings": [],
+  "patch_bytes": 0,
+  "result": {
+    "run_id": "run-b426b1778741",
+    "answer": "Stopped at the tool call limit. Review the run log before continuing.",
+    "status": "limit",
+    "tool_calls": 48,
+    "changed_paths": [],
+    "verified_commands": [],
+    "prompt_tokens": 541741,
+    "completion_tokens": 6947,
+    "session_id": "session-30911a6d2f99",
+    "unsupported_references": [],
+    "unrefreshed_paths": [],
+    "verification_fingerprint": null,
+    "observation_errors": [],
+    "model_answer": ""
+  },
+  "execution_mode": "container",
+  "container_image": "swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-25747:latest",
+  "container_image_id": "sha256:b298ae729978c45383ad5453673b65cdd179e0c8f539ef8720122ec6abdbad0e",
+  "container_env_names": [
+    "PATH",
+    "PYTHONPATH"
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "run_id": "run-de401ae2ae45",
+  "session_id": "session-a62a97f1f712",
+  "agent_status": "completed",
+  "validation_status": "self_checked",
+  "validation_source": "agent_selected",
+  "verified_commands": [
+    [
+      "python",
+      "-c",
+      "import numpy as np, pandas as pd; from seaborn._core.groupby import GroupBy; from seaborn._stats.regression import PolyFit; df = pd.DataFrame({'x':[1,2,3,None,4],'y':[1,2,3,4,5]}); gb = GroupBy(['x']); res = PolyFit(order=2)(df, gb, 'x', {}); print(res.head().to_string()); print('nulls:', res.isna().any().any())"
+    ],
+    [
+      "python",
+      "-c",
+      "import numpy as np, pandas as pd; from seaborn._core.groupby import GroupBy; from seaborn._stats.regression import PolyFit; df = pd.DataFrame({'x':[1,2,3,None,4],'y':[1,2,3,4,5]}); gb = GroupBy(['color']); res = PolyFit(order=2)(df, gb, 'x', {}); print(res.head().to_string()); print('rows:', len(res), 'nulls:', res.isna().any().any())"
+    ]
+  ],
+  "checks_after_last_change": [
+    {
+      "argv": [
+        "python",
+        "-c",
+        "import numpy as np, pandas as pd; from seaborn._core.groupby import GroupBy; from seaborn._stats.regression import PolyFit; df = pd.DataFrame({'x':[1,2,3,None,4],'y':[1,2,3,4,5]}); gb = GroupBy(['x']); res = PolyFit(order=2)(df, gb, 'x', {}); print(res.head().to_string()); print('nulls:', res.isna().any().any())"
+      ],
+      "status": "passed",
+      "at": "2026-09-29T12:47:34.020334+00:00",
+      "output_excerpt": "exit_code: 0\noutput_id: output-6937a37708534378a51818a98ddee17a\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nEmpty DataFrame\nColumns: [x, y]\nIndex: []\nnulls: False",
+      "workspace_fingerprint": "9439d0beb57352ade9f2a84a4758ba551ea4bd8af6a676616d2a0f0b3b3d33d3"
+    },
+    {
+      "argv": [
+        "python",
+        "-c",
+        "import numpy as np, pandas as pd; from seaborn._core.groupby import GroupBy; from seaborn._stats.regression import PolyFit; df = pd.DataFrame({'x':[1,2,3,None,4],'y':[1,2,3,4,5]}); gb = GroupBy(['color']); res = PolyFit(order=2)(df, gb, 'x', {}); print(res.head().to_string()); print('rows:', len(res), 'nulls:', res.isna().any().any())"
+      ],
+      "status": "passed",
+      "at": "2026-09-29T12:47:39.526742+00:00",
+      "output_excerpt": "exit_code: 0\noutput_id: output-08c5c0d21da74f41979c6c49857e6b0c\nUse read_output with this ID to search or page through the original output; do not rerun for logs.\nx         y\n0  1.000000  1.050000\n1  1.030303  1.066896\n2  1.060606  1.084252\n3  1.090909  1.102066\n4  1.121212  1.120340\nrows: 100 nulls: False",
+      "workspace_fingerprint": "9439d0beb57352ade9f2a84a4758ba551ea4bd8af6a676616d2a0f0b3b3d33d3"
+    }
+  ],
+  "last_change_at": "2026-09-29T12:47:22.517440+00:00",
+  "tool_counts": {
+    "read_file": 9,
+    "list_files": 3,
+    "search": 1,
+    "run_command": 8,
+    "replace_text": 2
+  },
+  "changed_paths": [
+    "seaborn/_stats/regression.py",
+    "tests/_stats/test_regression.py"
+  ],
+  "post_edit_reads_complete": true,
+  "observation_errors": [],
+  "prompt_tokens": 229568,
+  "completion_tokens": 5734,
+  "patch_warnings": [],
+  "patch_bytes": 1064,
+  "result": {
+    "run_id": "run-de401ae2ae45",
+    "answer": "## What changed\n\n**`seaborn/_stats/regression.py:41`** — `PolyFit.__call__` now drops rows with missing `x`/`y` before fitting:\n\n```python\nreturn groupby.apply(data.dropna(subset=[\"x\", \"y\"]), self._fit_predict)\n```\n\nPreviously the raw data (including `NaN`) was passed straight to `np.polyfit`, which raises `LinAlgError: SVD did not converge in Linear Least Squares`.\n\n**`tests/_stats/test_regression.py:38`** — added `test_missing_data`, which injects `NaN` into both `x` and `y` (hovering empty cells note: acorss multiple groups) and asserts the output contains no nulls.\n\n## Evidence\n\n- Reproduction at the stat level with the issue's data now returns a 100-row fitted curve with no nulls (previously raised `LinAlgError`).\n- `python -m pytest tests/_stats/test_regression.py -q` → `3 passed`.\n\n## Remaining limits\n\n- The full end-to-end `so.Plot(...).plot()` call in this workspace still fails, but at a different, unrelated place: `seaborn/_core/plot.py:1494` uses `pd.option_context(\"mode.use_inf_as_null\", ...)`, an option removed in the installed pandas version. That is a pre-existing environment incompatibility, not caused by this change.\n- I did not add a changelog entry; there is no `doc/whatsnew/v0.12.1.rst` in the repo.",
+    "status": "completed",
+    "tool_calls": 23,
+    "changed_paths": [
+      "seaborn/_stats/regression.py",
+      "tests/_stats/test_regression.py"
+    ],
+    "verified_commands": [
+      [
+        "python",
+        "-c",
+        "import numpy as np, pandas as pd; from seaborn._core.groupby import GroupBy; from seaborn._stats.regression import PolyFit; df = pd.DataFrame({'x':[1,2,3,None,4],'y':[1,2,3,4,5]}); gb = GroupBy(['x']); res = PolyFit(order=2)(df, gb, 'x', {}); print(res.head().to_string()); print('nulls:', res.isna().any().any())"
+      ],
+      [
+        "python",
+        "-c",
+        "import numpy as np, pandas as pd; from seaborn._core.groupby import GroupBy; from seaborn._stats.regression import PolyFit; df = pd.DataFrame({'x':[1,2,3,None,4],'y':[1,2,3,4,5]}); gb = GroupBy(['color']); res = PolyFit(order=2)(df, gb, 'x', {}); print(res.head().to_string()); print('rows:', len(res), 'nulls:', res.isna().any().any())"
+      ]
+    ],
+    "prompt_tokens": 229568,
+    "completion_tokens": 5734,
+    "session_id": "session-a62a97f1f712",
+    "unsupported_references": [],
+    "unrefreshed_paths": [],
+    "verification_fingerprint": "9439d0beb57352ade9f2a84a4758ba551ea4bd8af6a676616d2a0f0b3b3d33d3",
+    "observation_errors": [],
+    "model_answer": "## What changed\n\n**`seaborn/_stats/regression.py:41`** — `PolyFit.__call__` now drops rows with missing `x`/`y` before fitting:\n\n```python\nreturn groupby.apply(data.dropna(subset=[\"x\", \"y\"]), self._fit_predict)\n```\n\nPreviously the raw data (including `NaN`) was passed straight to `np.polyfit`, which raises `LinAlgError: SVD did not converge in Linear Least Squares`.\n\n**`tests/_stats/test_regression.py:38`** — added `test_missing_data`, which injects `NaN` into both `x` and `y` (hovering empty cells note: acorss multiple groups) and asserts the output contains no nulls.\n\n## Evidence\n\n- Reproduction at the stat level with the issue's data now returns a 100-row fitted curve with no nulls (previously raised `LinAlgError`).\n- `python -m pytest tests/_stats/test_regression.py -q` → `3 passed`.\n\n## Remaining limits\n\n- The full end-to-end `so.Plot(...).plot()` call in this workspace still fails, but at a different, unrelated place: `seaborn/_core/plot.py:1494` uses `pd.option_context(\"mode.use_inf_as_null\", ...)`, an option removed in the installed pandas version. That is a pre-existing environment incompatibility, not caused by this change.\n- I did not add a changelog entry; there is no `doc/whatsnew/v0.12.1.rst` in the repo."
+  },
+  "execution_mode": "container",
+  "container_image": "swebench/sweb.eval.x86_64.mwaskom_1776_seaborn-3010:latest",
+  "container_image_id": "sha256:b48518581efd875a1b7c58af32e065c3589bc0ed1e24379302a3324916949e04",
+  "container_env_names": [
+    "PATH",
+    "PYTHONPATH"
+  ]
+}

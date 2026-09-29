@@ -3,3 +3,4 @@
 *.toml text eol=lf
 *.json text eol=lf
 *.yml text eol=lf
+benchmarks/results/swebench-lite-10-4d4eaf9/** -text

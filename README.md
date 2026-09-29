@@ -80,5 +80,7 @@ Read [the architecture guide](docs/ARCHITECTURE.md) for the design decisions
 and [the evaluation protocol](docs/EVALUATION.md) for measured results and limits.
 The [multi-file continuation results](docs/MULTIFILE.md) include failed recovery,
 a supplementary verifier audit, and a targeted rerun after the fix.
-The [public issue evaluation](docs/SWEBENCH.md) records a fixed SWE-bench Lite
-attempt and its grading outcome.
+The [fixed ten-issue SWE-bench Lite evaluation](docs/SWEBENCH-10.md) records
+all attempts and official grading: 4/10 resolved across four repositories.
+The [earlier single-issue evaluation](docs/SWEBENCH.md) records a failed
+attempt that motivated isolated execution and clearer task validation.
