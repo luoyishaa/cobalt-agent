@@ -31,19 +31,26 @@ def string_field(description: str) -> dict:
     return {"type": "string", "description": description}
 
 
-def integer_field(description: str) -> dict:
-    return {"type": "integer", "description": description}
+def integer_field(description: str, *, minimum: int | None = None,
+                  maximum: int | None = None) -> dict:
+    field = {"type": "integer", "description": description}
+    if minimum is not None:
+        field["minimum"] = minimum
+    if maximum is not None:
+        field["maximum"] = maximum
+    return field
 
 TOOL_SCHEMAS = [
     _tool("list_outputs", "List recent saved command output IDs, statuses, and sizes without rerunning commands.", {}, []),
     _tool("read_output", "Read saved command output without executing anything. Offsets and limits are bytes; optional literal query finds the first match at or after offset. Historical output is not current file evidence.", {
         "output_id": string_field("ID returned by run_command"),
-        "offset": integer_field("Starting byte offset; default 0"),
-        "limit": integer_field("Maximum returned bytes, 1..8000; default 4000"),
+        "offset": integer_field("Starting byte offset; default 0", minimum=0),
+        "limit": integer_field("Maximum returned bytes, 1..8000; default 4000", minimum=1, maximum=8000),
         "query": string_field("Optional literal UTF-8 search text, 1..256 characters")}, ["output_id"]),
     _tool("list_files", "List a bounded view of the repository tree.", {"path": string_field("Relative directory; default '.'")}, []),
     _tool("read_file", "Read numbered lines and get a content SHA-256 for safe edits.", {
-        "path": string_field("Relative file path"), "start": integer_field("First line number"), "lines": integer_field("Number of lines, up to 400")}, ["path"]),
+        "path": string_field("Relative file path"), "start": integer_field("First line number", minimum=1),
+        "lines": integer_field("Number of lines, up to 400", minimum=1, maximum=400)}, ["path"]),
     _tool("search", "Find literal text in repository files. Scope to a file or directory when global results are noisy or truncated.", {
         "query": string_field("Text to find"),
         "path": string_field("Optional relative file or directory; default '.'")}, ["query"]),
@@ -54,7 +61,7 @@ TOOL_SCHEMAS = [
         "path": string_field("Relative new file path"), "content": string_field("Full file content")}, ["path", "content"]),
     _tool("run_command", "Run an argv command in the repository root without a shell. Only purpose='check' can count as agent-selected verification; inspection is the default. Requires approval.", {
         "argv": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-        "timeout": integer_field("Seconds, 1 to 120"),
+        "timeout": integer_field("Seconds, 1 to 120", minimum=1, maximum=120),
         "purpose": {"type": "string", "enum": ["inspect", "check"],
                     "description": "Use 'check' only for a test or explicit behavior assertion; default 'inspect'"}}, ["argv"]),
 ]
@@ -77,6 +84,10 @@ def validate_arguments(name: str, args: dict[str, Any]) -> None:
             raise TypeError(f"{key} must be a string")
         if kind == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
             raise TypeError(f"{key} must be an integer")
+        if kind == "integer" and (value < field.get("minimum", value)
+                                  or value > field.get("maximum", value)):
+            raise ValueError(f"{key} must be within {field.get('minimum', '-infinity')}.."
+                             f"{field.get('maximum', 'infinity')}")
         if kind == "array" and (
             not isinstance(value, list)
             or len(value) < field.get("minItems", 0)

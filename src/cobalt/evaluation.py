@@ -218,6 +218,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "effect_count": executions,
             "tool_names": tool_names,
             "steps": steps,
+            "unsupported_action_claims": result.unsupported_action_claims,
             "failure_category": failure_category,
             "changed_paths": result.changed_paths,
             "verification_fingerprint": result.verification_fingerprint,

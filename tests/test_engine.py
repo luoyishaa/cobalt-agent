@@ -30,6 +30,65 @@ class ScriptedModel:
 
 
 class AgentTests(unittest.TestCase):
+    def test_false_edit_claim_after_read_is_not_delivered_as_completion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "service.py").write_text("VALUE = 1\n", encoding="utf-8")
+            workspace = Workspace(root)
+            model = ScriptedModel([
+                ModelTurn("", (ToolCall("read", "read_file", {"path": "service.py"}),)),
+                ModelTurn("I modified service.py and fixed the bug."),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Fix service.py")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.changed_paths, [])
+            self.assertEqual(result.unsupported_action_claims, ["file_change"])
+            self.assertNotIn("I modified", result.answer)
+            self.assertIn("file_change", result.answer)
+            self.assertEqual(result.model_answer, "I modified service.py and fixed the bug.")
+            self.assertIn("Remove claims of completed actions", model.seen[2][0]["content"])
+            saved = json.loads((root / ".cobalt" / "runs" / result.run_id / "result.json")
+                               .read_text(encoding="utf-8"))
+            self.assertEqual(saved["unsupported_action_claims"], ["file_change"])
+            self.assertEqual((root / "service.py").read_text(encoding="utf-8"), "VALUE = 1\n")
+
+    def test_false_successful_check_claim_is_rejected_after_failed_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            model = ScriptedModel([
+                ModelTurn("", (ToolCall("run", "run_command", {
+                    "argv": [sys.executable, "-c", "raise SystemExit(1)"], "purpose": "check",
+                }),)),
+                ModelTurn("Tests passed."),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Run a check")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.unsupported_action_claims, ["successful_check"])
+            self.assertNotIn("Tests passed.", result.answer)
+
+    def test_human_edit_during_model_turn_does_not_support_agent_edit_claim(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            file = root / "service.py"
+            file.write_text("VALUE = 1\n", encoding="utf-8")
+            workspace = Workspace(root)
+
+            class HumanEdit:
+                def __init__(self):
+                    self.calls = 0
+
+                def complete(self, _messages, _tools):
+                    self.calls += 1
+                    if self.calls == 1:
+                        return ModelTurn("", (ToolCall("read", "read_file", {"path": "service.py"}),))
+                    file.write_text("VALUE = 2\n", encoding="utf-8")
+                    return ModelTurn("I modified service.py.")
+
+            result = Agent(workspace, HumanEdit(), ToolGate(workspace, lambda _n, _a: True)).ask("Inspect it")
+            self.assertEqual(result.changed_paths, ["service.py"])
+            self.assertEqual(result.unsupported_action_claims, ["file_change"])
+            self.assertEqual(result.status, "unverified")
+
     def test_followup_keeps_user_requirement_when_old_logs_can_be_shortened(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
@@ -303,6 +362,13 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(gate.execute("run_command", {"argv": ["python", "-V"],
                                                           "purpose": "verified"}).status, "error")
             self.assertEqual(gate.execute("create_file", {"path": "x"}).status, "error")
+            self.assertEqual(gate.execute("read_file", {"path": "x", "start": 0}).status, "error")
+            self.assertEqual(gate.execute("read_file", {"path": "x", "lines": 401}).status, "error")
+            self.assertEqual(gate.execute("run_command", {"argv": ["python"], "timeout": 0}).status, "error")
+            read_schema = next(item["function"]["parameters"] for item in gate.schemas()
+                               if item["function"]["name"] == "read_file")
+            self.assertEqual(read_schema["properties"]["start"]["minimum"], 1)
+            self.assertEqual(read_schema["properties"]["lines"]["maximum"], 400)
 
     def test_malformed_model_response_retries_with_a_bounded_hint(self):
         with tempfile.TemporaryDirectory() as directory:

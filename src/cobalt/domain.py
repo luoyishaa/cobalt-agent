@@ -63,3 +63,4 @@ class RunResult:
     verification_fingerprint: str | None = None
     observation_errors: list[str] = field(default_factory=list)
     model_answer: str = ""
+    unsupported_action_claims: list[str] = field(default_factory=list)

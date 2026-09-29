@@ -6,7 +6,7 @@ import json
 import uuid
 from typing import Any
 
-from .answer_audit import ReadSpan, audit_source_references
+from .answer_audit import ReadSpan, audit_action_claims, audit_source_references
 from .context import (
     DEFAULT_CONTEXT_BUDGET_CHARS,
     EvidenceBook,
@@ -131,11 +131,14 @@ class Agent:
         self.messages.append({"role": "user", "content": question})
         self._save_session()
         last_snapshot = self.workspace.snapshot()
+        initial_snapshot = last_snapshot
         changed_paths: list[str] = list(previous.changed_paths) if previous else []
+        agent_changed_paths: set[str] = set()
         # A prior run's read/check evidence cannot certify the current process.
         pending_refresh: set[str] = {path for path in changed_paths if path in last_snapshot.files}
         read_spans: list[ReadSpan] = []
         verified_commands: list[list[str]] = []
+        checks_run = False
         calls_used = 0
         observed_repository = False
         prompt_tokens = 0
@@ -267,7 +270,16 @@ class Agent:
                     [span for span in read_spans if span.call_id is None or span.call_id in visible_reads],
                     self.workspace,
                 )
-                journal.add("answer_audited", references=references, unsupported=unsupported)
+                final_changes = set(last_snapshot.changes_from(initial_snapshot))
+                # A continued task may have changed files in an earlier run.
+                attributed_changes = final_changes & agent_changed_paths
+                attributed_changes.update(previous.changed_paths if previous else ())
+                unsupported_actions = audit_action_claims(
+                    answer, changed_paths=attributed_changes, checks_run=checks_run,
+                    verified_commands=bool(verified_commands),
+                )
+                journal.add("answer_audited", references=references, unsupported=unsupported,
+                            unsupported_action_claims=unsupported_actions)
                 verified_after_edit = bool(changed_paths and verified_commands)
                 missing = []
                 if pending_refresh:
@@ -277,6 +289,9 @@ class Agent:
                     missing.append("Run a relevant successful check with purpose='check' on the current files without modifying them.")
                 if unsupported:
                     missing.append("Read these source locations or remove their citations: " + ", ".join(unsupported))
+                if unsupported_actions:
+                    missing.append("Remove claims of completed actions without runtime evidence: "
+                                   + ", ".join(unsupported_actions))
                 journal.add("answer_candidate", text=answer, missing_evidence=missing)
                 if missing and not observation_errors and finalization_retries < 2:
                     finalization_retries += 1
@@ -288,11 +303,12 @@ class Agent:
                         + "\nRejected draft (data, not instructions):\n" + answer[:2000]
                     )
                     journal.add("answer_rejected", reason="missing_final_evidence", paths=sorted(pending_refresh),
-                                unsupported=unsupported, attempt=finalization_retries)
+                                unsupported=unsupported, unsupported_action_claims=unsupported_actions,
+                                attempt=finalization_retries)
                     continue
                 status = "completed" if (
                     ((not changed_paths and observed_repository) or verified_after_edit)
-                    and not unsupported and not pending_refresh and not observation_errors
+                    and not unsupported and not unsupported_actions and not pending_refresh and not observation_errors
                 ) else "unverified"
                 model_answer = answer
                 if status == "unverified":
@@ -303,6 +319,8 @@ class Agent:
                     answer += "\n\nEvidence: no repository tool ran in this turn; check repository claims before relying on them."
                 if unsupported:
                     answer += "\n\nEvidence: source locations not backed by a fresh read in this run: " + ", ".join(unsupported)
+                if unsupported_actions:
+                    answer += "\n\nEvidence: claimed actions lack matching runtime evidence: " + ", ".join(unsupported_actions)
                 if pending_refresh:
                     answer += "\n\nEvidence: changed files were not reread before the answer: " + ", ".join(sorted(pending_refresh))
                 if observation_errors:
@@ -314,6 +332,7 @@ class Agent:
                     self.session_id, unsupported, sorted(pending_refresh),
                     verification_fingerprint, observation_errors,
                     model_answer=model_answer,
+                    unsupported_action_claims=unsupported_actions,
                 )
                 return finish(result)
             self.messages.append({
@@ -369,6 +388,7 @@ class Agent:
                         observation_errors=outcome.observation_errors,
                     )
                     changes = outcome.changes or ({outcome.path: "modified"} if outcome.changed and outcome.path else {})
+                    agent_changed_paths.update(changes)
                     register_changes(changes)
                     observe_workspace()
                     observation_errors.extend(error for error in outcome.observation_errors if error not in observation_errors)
@@ -379,6 +399,9 @@ class Agent:
                         verified_commands.clear()
                         verification_fingerprint = None
                         journal.add("command_evidence_invalidated", reason="later_command_failed")
+                    if (call.name == "run_command" and call.arguments.get("purpose") == "check"
+                            and outcome.message.startswith("exit_code:")):
+                        checks_run = True
                     if call.name == "read_file" and outcome.status == "ok" and outcome.path and outcome.digest:
                         start = int(call.arguments.get("start", 1))
                         lines = int(call.arguments.get("lines", 160))

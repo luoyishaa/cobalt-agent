@@ -67,9 +67,10 @@ class FinalizationTests(unittest.TestCase):
     def test_normal_completion_has_no_extra_model_round(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
-            model = Sequence([create(), read(), check(), ModelTurn("Checked.")])
+            model = Sequence([create(), read(), check(), ModelTurn("I created check.py. Tests passed.")])
             result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Create a check")
             self.assertEqual(result.status, "completed")
+            self.assertEqual(result.unsupported_action_claims, [])
             self.assertEqual(len(model.seen), 4)
 
     def test_tool_limit_does_not_expand_to_satisfy_finalization(self):

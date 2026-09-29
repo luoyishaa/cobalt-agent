@@ -67,6 +67,10 @@ one observed outcome, not a reliability estimate. API usage may incur charges.
   after inspection; see [recovery behavior and limits](docs/RECOVERY.md).
 - Explicit `file:line` references are checked against fresh reads. A completed
   run records actions; it does not certify every sentence in the answer.
+- Explicit claims that files were changed or checks ran/passed are compared
+  with observed effects. Unsupported drafts remain in the run record, while
+  the delivered answer names the missing evidence. This is a bounded audit of
+  recognizable claims, not a semantic proof that the task was solved.
 - Session memory stores file locations and digests as navigation hints, not
   truncated text presented as a summary.
 
