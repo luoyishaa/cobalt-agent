@@ -41,7 +41,9 @@ IMAGE` to check availability.
 
 ## Explicit checks
 
-Free-form tasks remain supported. Their saved report labels passing commands
+Free-form tasks remain supported. The agent labels a command as a check by
+calling `run_command` with `purpose="check"`; successful inspection commands
+do not count as verification. The report labels passing, non-mutating checks
 chosen by the agent as `self_checked`. For repeatable tasks, supply a JSON file:
 
 ```json

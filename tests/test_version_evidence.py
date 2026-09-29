@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -18,8 +19,10 @@ class Script:
         return next(self.turns, ModelTurn("The work is verified."))
 
 
-def command(call_id, code):
-    return ModelTurn("", (ToolCall(call_id, "run_command", {"argv": [sys.executable, "-c", code]}),))
+def command(call_id, code, *, purpose="inspect"):
+    return ModelTurn("", (ToolCall(call_id, "run_command", {
+        "argv": [sys.executable, "-c", code], "purpose": purpose,
+    }),))
 
 
 def read(path):
@@ -42,7 +45,8 @@ class VersionEvidenceTests(unittest.TestCase):
             result = Agent(workspace, Script([
                 command("edit", "from pathlib import Path; Path('value.txt').write_text('1')"),
                 read("value.txt"),
-                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '2'"),
+                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '2'",
+                        purpose="check"),
             ]), ToolGate(workspace, lambda _n, _a: True)).ask("Edit and inspect current contents")
             self.assertEqual(result.status, "unverified")
             self.assertEqual(result.unrefreshed_paths, ["value.txt"])
@@ -68,12 +72,30 @@ class VersionEvidenceTests(unittest.TestCase):
             workspace = Workspace(root)
             result = Agent(workspace, Script([
                 command("edit", "from pathlib import Path; Path('value.txt').write_text('2')"),
-                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '2'"),
+                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '2'",
+                        purpose="check"),
                 read("value.txt"),
             ]), ToolGate(workspace, lambda _n, _a: True)).ask("Change to 2 and check")
             self.assertEqual(result.status, "completed")
             self.assertEqual(len(result.verified_commands), 1)
             self.assertEqual(result.verification_fingerprint, workspace.snapshot().fingerprint)
+
+    def test_successful_inspection_does_not_certify_an_edit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "value.txt").write_text("1")
+            workspace = Workspace(root)
+            result = Agent(workspace, Script([
+                command("edit", "from pathlib import Path; Path('value.txt').write_text('2')"),
+                read("value.txt"),
+                command("inspect", "from pathlib import Path; print(Path('value.txt').read_text())"),
+            ]), ToolGate(workspace, lambda _n, _a: True)).ask("Change to 2 and check")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.verified_commands, [])
+            report = json.loads((root / ".cobalt" / "runs" / result.run_id / "report.json")
+                                .read_text(encoding="utf-8"))
+            self.assertEqual(report["validation_status"], "not_checked")
+            self.assertEqual(report["checks_after_last_change"], [])
 
     def test_deleted_file_needs_a_new_check_but_not_an_impossible_reread(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -82,7 +104,8 @@ class VersionEvidenceTests(unittest.TestCase):
             workspace = Workspace(root)
             result = Agent(workspace, Script([
                 command("delete", "from pathlib import Path; Path('obsolete.txt').unlink()"),
-                command("check", "from pathlib import Path; assert not Path('obsolete.txt').exists()"),
+                command("check", "from pathlib import Path; assert not Path('obsolete.txt').exists()",
+                        purpose="check"),
             ]), ToolGate(workspace, lambda _n, _a: True)).ask("Remove the obsolete file")
             self.assertEqual(result.status, "completed")
             self.assertEqual(result.changed_paths, ["obsolete.txt"])
@@ -96,7 +119,7 @@ class VersionEvidenceTests(unittest.TestCase):
                     return Snapshot(observed.files, ("blocked.txt: injected I/O failure",))
 
             workspace = UnreadableWorkspace(Path(directory))
-            result = Agent(workspace, Script([command("check", "print('PASS')")]),
+            result = Agent(workspace, Script([command("check", "print('PASS')", purpose="check")]),
                            ToolGate(workspace, lambda _n, _a: True)).ask("Check")
             self.assertEqual(result.status, "unverified")
             self.assertEqual(result.verified_commands, [])
@@ -120,8 +143,10 @@ class VersionEvidenceTests(unittest.TestCase):
             result = Agent(workspace, Script([
                 command("edit", "from pathlib import Path; Path('value.txt').write_text('0')"),
                 read("value.txt"),
-                command("pass", "from pathlib import Path; assert Path('value.txt').read_text() == '0'"),
-                command("fail", "from pathlib import Path; assert Path('value.txt').read_text() == '1'"),
+                command("pass", "from pathlib import Path; assert Path('value.txt').read_text() == '0'",
+                        purpose="check"),
+                command("fail", "from pathlib import Path; assert Path('value.txt').read_text() == '1'",
+                        purpose="check"),
             ]), ToolGate(workspace, lambda _n, _a: True)).ask("Edit and check")
             self.assertEqual(result.status, "unverified")
             self.assertEqual(result.verified_commands, [])
@@ -142,7 +167,8 @@ class VersionEvidenceTests(unittest.TestCase):
                     return turn
 
             result = Agent(workspace, HumanEdit([
-                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '1'"),
+                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '1'",
+                        purpose="check"),
             ]), ToolGate(workspace, lambda _n, _a: True)).ask("Check the current value")
             self.assertEqual(result.status, "unverified")
             self.assertEqual(result.verified_commands, [])
@@ -154,7 +180,8 @@ class VersionEvidenceTests(unittest.TestCase):
             (root / "value.txt").write_text("1")
             workspace = Workspace(root)
             model = Script([
-                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '1'"),
+                command("check", "from pathlib import Path; assert Path('value.txt').read_text() == '1'",
+                        purpose="check"),
                 command("change", "from pathlib import Path; Path('value.txt').write_text('0')"),
                 read("value.txt"),
             ])

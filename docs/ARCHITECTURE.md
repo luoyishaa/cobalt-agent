@@ -9,7 +9,7 @@ and evidence requirements to each request.
 
 1. **Observed actions outrank fluent answers.** A repository answer without a
    successful repository tool is marked `unverified`. An edit without a later
-   successful command supporting the current observed file version is also
+   successful agent-declared check supporting the current observed file version is also
    marked `unverified`.
 2. **One workspace root.** File tools resolve each path before access. Escapes,
    runtime directories, and local `.env` files are blocked.

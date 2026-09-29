@@ -44,15 +44,19 @@ TOOL_SCHEMAS = [
     _tool("list_files", "List a bounded view of the repository tree.", {"path": string_field("Relative directory; default '.'")}, []),
     _tool("read_file", "Read numbered lines and get a content SHA-256 for safe edits.", {
         "path": string_field("Relative file path"), "start": integer_field("First line number"), "lines": integer_field("Number of lines, up to 400")}, ["path"]),
-    _tool("search", "Find literal text in repository files.", {"query": string_field("Text to find")}, ["query"]),
+    _tool("search", "Find literal text in repository files. Scope to a file or directory when global results are noisy or truncated.", {
+        "query": string_field("Text to find"),
+        "path": string_field("Optional relative file or directory; default '.'")}, ["query"]),
     _tool("replace_text", "Replace one exact block in a file after checking its SHA-256.", {
         "path": string_field("Relative file path"), "old": string_field("Exact old text"), "new": string_field("Replacement text"),
         "expected_sha256": string_field("SHA-256 returned by read_file")}, ["path", "old", "new", "expected_sha256"]),
     _tool("create_file", "Create a new file without overwriting any existing file.", {
         "path": string_field("Relative new file path"), "content": string_field("Full file content")}, ["path", "content"]),
-    _tool("run_command", "Run an argv command in the repository root without a shell. Requires approval.", {
+    _tool("run_command", "Run an argv command in the repository root without a shell. Only purpose='check' can count as agent-selected verification; inspection is the default. Requires approval.", {
         "argv": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-        "timeout": integer_field("Seconds, 1 to 120")}, ["argv"]),
+        "timeout": integer_field("Seconds, 1 to 120"),
+        "purpose": {"type": "string", "enum": ["inspect", "check"],
+                    "description": "Use 'check' only for a test or explicit behavior assertion; default 'inspect'"}}, ["argv"]),
 ]
 
 RISKY = {"replace_text", "create_file", "run_command"}
@@ -79,6 +83,8 @@ def validate_arguments(name: str, args: dict[str, Any]) -> None:
             or any(not isinstance(item, str) for item in value)
         ):
             raise TypeError(f"{key} must be a non-empty list of strings")
+        if "enum" in field and value not in field["enum"]:
+            raise ValueError(f"{key} must be one of {field['enum']}")
 
 
 class ToolGate:
@@ -133,7 +139,7 @@ class ToolGate:
                     str(args["path"]), start=int(args.get("start", 1)), lines=int(args.get("lines", 160))
                 )
             if name == "search":
-                return self.workspace.search(str(args["query"]))
+                return self.workspace.search(str(args["query"]), path=str(args.get("path", ".")))
             if name == "replace_text":
                 return self.workspace.replace_text(
                     str(args["path"]), str(args["old"]), str(args["new"]), str(args["expected_sha256"])

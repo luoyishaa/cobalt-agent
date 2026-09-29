@@ -60,6 +60,12 @@ tokens and 131,684 completion tokens in aggregate, measured as reported by the
 model API; this includes repeated context across calls and should not be read
 as unique task content.
 
+A later report audit found that the frozen agent version could label successful
+inspection commands as `self_checked`. The original reports are retained
+unchanged; their agent-selected check labels should be interpreted with this
+limitation. The official resolved and unresolved verdicts are unaffected.
+Subsequent runs require an explicit check purpose for command evidence.
+
 ## Reproduce the grading
 
 Install the official SWE-bench harness and make the selected task images

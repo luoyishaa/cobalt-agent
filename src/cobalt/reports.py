@@ -69,6 +69,7 @@ def initial_report(root: Path, result: RunResult, directory: Path) -> dict[str, 
     for index, event in enumerate(events):
         if (index > last_modified_index and event["kind"] == "tool_finished"
                 and event.get("name") == "run_command" and event.get("status") == "ok"
+                and event.get("args", {}).get("purpose") == "check"
                 and event.get("args", {}).get("argv") in result.verified_commands
                 and event.get("workspace_fingerprint") == result.verification_fingerprint):
             check_evidence.append({"argv": event["args"]["argv"], "status": "passed",

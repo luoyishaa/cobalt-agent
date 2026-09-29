@@ -15,7 +15,12 @@ class RunReportTests(unittest.TestCase):
             journal = Journal(Path(directory), "run-evidence")
             journal.add("tool_finished", name="replace_text", args={"path": "app.py"},
                         status="ok", changes={"app.py": "modified"})
-            journal.add("tool_finished", name="run_command", args={"argv": ["python", "-m", "pytest"]},
+            journal.add("tool_finished", name="run_command", args={"argv": ["python", "-m", "pytest"],
+                                                                   "purpose": "inspect"},
+                        status="ok", changes={}, output="exit_code: 0\ninspected",
+                        workspace_fingerprint="current")
+            journal.add("tool_finished", name="run_command", args={"argv": ["python", "-m", "pytest"],
+                                                                   "purpose": "check"},
                         status="ok", changes={}, output="exit_code: 0\n2 passed",
                         workspace_fingerprint="current")
             journal.finish(RunResult("run-evidence", "done", "completed", 2,
@@ -24,6 +29,7 @@ class RunReportTests(unittest.TestCase):
             report = json.loads((journal.directory / "report.json").read_text(encoding="utf-8"))
             self.assertEqual(report["checks_after_last_change"][0]["argv"],
                              ["python", "-m", "pytest"])
+            self.assertEqual(len(report["checks_after_last_change"]), 1)
             self.assertIn("2 passed", report["checks_after_last_change"][0]["output_excerpt"])
             self.assertIsNotNone(report["last_change_at"])
 

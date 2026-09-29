@@ -25,7 +25,9 @@ def create():
 
 
 def check():
-    return ModelTurn("", (ToolCall("check", "run_command", {"argv": [sys.executable, "check.py"]}),))
+    return ModelTurn("", (ToolCall("check", "run_command", {
+        "argv": [sys.executable, "check.py"], "purpose": "check",
+    }),))
 
 
 def read():

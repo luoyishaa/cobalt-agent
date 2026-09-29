@@ -9,9 +9,10 @@ meaningful test.
 1. The tool gate observes the workspace before and after each approved command
    or file write. Results report created, modified and deleted paths, including
    changes left behind by a command that exits unsuccessfully.
-2. A command can contribute evidence only when it exits successfully, both
-   observations are complete, and its before/after fingerprints match. A command
-   which changes observed files cannot validate its own result.
+2. An agent command can contribute check evidence only when it declares
+   `purpose="check"`, exits successfully, both observations are complete, and
+   its before/after fingerprints match. An inspection command, or a command
+   which changes observed files, cannot validate an edit.
 3. Later observed changes or a failed command clear previous successful-command
    records. Observations after model responses detect external edits made while
    the model was responding. Existing dirty files form the initial baseline and
@@ -23,11 +24,11 @@ meaningful test.
    The result reports `observation_errors`. Read failures are not interpreted as
    proof that a file was deleted.
 
-`verified_commands` is retained for compatibility. Its entries are successful
-commands without observed changes, supporting the result's
-`verification_fingerprint`. The name does not mean the runtime understands the
-commands' test coverage. A successful `echo` remains a successful command, not
-proof of application correctness. Benchmarks use separate external verifiers.
+`verified_commands` contains agent-declared checks without observed changes,
+supporting the result's `verification_fingerprint`. The runtime verifies the
+command outcome and file version, but it does not understand whether the chosen
+check covers the request. User-specified checks and benchmark verifiers remain
+separate task evidence.
 
 ## Observation scope
 
@@ -62,6 +63,7 @@ resume.
 | Later command fails after an earlier success | Previous evidence revoked |
 | One failed command creates, modifies and deletes files | All three changes reported; no successful evidence |
 | Edit, subsequent successful check, fresh read | `completed`; fingerprint matches the observed current files |
+| Edit, fresh read, successful inspection command | `unverified`; no declared check evidence |
 | Delete, subsequent check confirming absence | Completion allowed without rereading a missing file |
 | Snapshot reports an injected I/O failure | `unverified`; observation errors retained |
 | Pre-existing work is only read | No changes attributed to this invocation |
@@ -74,7 +76,7 @@ live coding tasks exercise separate contracts described in [EVALUATION.md](EVALU
 ## Finalization feedback and delivery
 
 When a model proposes a final answer, the runtime collects missing post-edit
-reads (including newly created tests), missing successful-command evidence for
+reads (including newly created tests), missing declared-check evidence for
 the current workspace version, and unsupported source citations. It provides
 the concrete checklist and a bounded excerpt of the rejected draft in the next
 model request. Drafts and rejection reasons are recorded as journal events.

@@ -108,27 +108,35 @@ class Workspace:
             numbered += "\n[more lines available]"
         return ToolOutcome("ok", numbered or "(empty)", self._rel(path), digest_bytes(data))
 
-    def search(self, query: str, *, max_matches: int = 80) -> ToolOutcome:
+    def search(self, query: str, *, path: str = ".", max_matches: int = 80) -> ToolOutcome:
         if not query or len(query) > 200:
             raise ValueError("query must be 1..200 characters")
+        target = self.root if path == "." else self._path(path, must_exist=True)
+        if not target.is_file() and not target.is_dir():
+            raise ValueError("search path must be a file or directory")
         matches: list[str] = []
-        for current, dirs, files in os.walk(self.root, followlinks=False):
-            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-            for name in sorted(files):
-                if private_name(name):
-                    continue
-                path = Path(current) / name
-                if path.is_symlink() or path.stat().st_size > MAX_READ_BYTES:
-                    continue
-                try:
-                    text = path.read_text(encoding="utf-8")
-                except (UnicodeError, OSError):
-                    continue
-                for number, line in enumerate(text.splitlines(), 1):
-                    if query.casefold() in line.casefold():
-                        matches.append(f"{self._rel(path)}:{number}: {line[:240]}")
-                        if len(matches) >= max_matches:
-                            return ToolOutcome("ok", "\n".join(matches) + "\n[match limit reached]")
+
+        def files_to_scan():
+            if target.is_file():
+                yield target
+                return
+            for current, dirs, files in os.walk(target, followlinks=False):
+                dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+                for name in sorted(files):
+                    yield Path(current) / name
+
+        for candidate in files_to_scan():
+            if private_name(candidate.name) or candidate.is_symlink() or candidate.stat().st_size > MAX_READ_BYTES:
+                continue
+            try:
+                content = candidate.read_text(encoding="utf-8")
+            except (UnicodeError, OSError):
+                continue
+            for number, line in enumerate(content.splitlines(), 1):
+                if query.casefold() in line.casefold():
+                    matches.append(f"{self._rel(candidate)}:{number}: {line[:240]}")
+                    if len(matches) >= max_matches:
+                        return ToolOutcome("ok", "\n".join(matches) + "\n[match limit reached]")
         return ToolOutcome("ok", "\n".join(matches) or "(no matches)")
 
     def replace_text(self, relative: str, old: str, new: str, expected_sha256: str) -> ToolOutcome:

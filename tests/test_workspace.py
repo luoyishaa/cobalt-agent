@@ -6,6 +6,7 @@ import time
 import unittest
 from pathlib import Path
 
+from cobalt.tools import ToolGate
 from cobalt.workspace import Workspace
 
 
@@ -93,6 +94,22 @@ class WorkspaceTests(unittest.TestCase):
                 workspace.read_file(".env")
             self.assertNotIn(".env", workspace.list_files().message)
             self.assertNotIn("private", workspace.search("private").message)
+
+    def test_search_can_focus_on_one_directory_or_file_without_escaping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs").mkdir()
+            (root / "src").mkdir()
+            (root / "docs" / "history.txt").write_text("needle in old notes\n", encoding="utf-8")
+            (root / "src" / "logic.py").write_text("needle in source\n", encoding="utf-8")
+            workspace = Workspace(root)
+            gate = ToolGate(workspace, lambda _name, _args: False)
+            focused = gate.execute("search", {"query": "needle", "path": "src"})
+            self.assertEqual(focused.status, "ok")
+            self.assertIn("src/logic.py:1", focused.message)
+            self.assertNotIn("docs/history.txt", focused.message)
+            self.assertIn("src/logic.py:1", workspace.search("needle", path="src/logic.py").message)
+            self.assertEqual(gate.execute("search", {"query": "needle", "path": "../"}).status, "error")
 
     def test_edit_uses_digest_and_reports_new_digest(self):
         with tempfile.TemporaryDirectory() as directory:

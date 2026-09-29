@@ -74,6 +74,7 @@ class WeakeningModel:
             )),
             ModelTurn("", (ToolCall("check", "run_command", {
                 "argv": [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
+                "purpose": "check",
             }),)),
             ModelTurn("Done."),
             ModelTurn("Done."),
@@ -94,6 +95,7 @@ class StaleCitationModel:
             }),)),
             ModelTurn("", (ToolCall("check", "run_command", {
                 "argv": [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
+                "purpose": "check",
             }),)),
             ModelTurn("Fixed it in grades.py:1."),
             ModelTurn("Fixed it in grades.py:1."),

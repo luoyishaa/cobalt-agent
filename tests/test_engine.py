@@ -169,6 +169,7 @@ class AgentTests(unittest.TestCase):
                 }),)),
                 ModelTurn("", (ToolCall("verify-1", "run_command", {
                     "argv": [sys.executable, "-c", "from pathlib import Path; assert Path('task.py').read_text() == 'value = 2\\n'"],
+                    "purpose": "check",
                 }),)),
                 ModelTurn("Updated and checked."),
                 ModelTurn("", (ToolCall("read-after-edit", "read_file", {"path": "task.py"}),)),
@@ -299,6 +300,8 @@ class AgentTests(unittest.TestCase):
             gate = ToolGate(Workspace(Path(directory)), lambda _n, _a: True)
             self.assertEqual(gate.execute("read_file", {"path": "x", "surprise": 1}).status, "error")
             self.assertEqual(gate.execute("run_command", {"argv": "python -V"}).status, "error")
+            self.assertEqual(gate.execute("run_command", {"argv": ["python", "-V"],
+                                                          "purpose": "verified"}).status, "error")
             self.assertEqual(gate.execute("create_file", {"path": "x"}).status, "error")
 
     def test_malformed_model_response_retries_with_a_bounded_hint(self):
@@ -322,3 +325,31 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(result.status, "completed")
             self.assertIn("last response contained invalid", model.prompts[1][0]["content"].lower())
             self.assertNotIn("last response contained invalid", model.prompts[2][0]["content"].lower())
+
+    def test_empty_model_turn_is_retried_and_cannot_finish_a_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            model = ScriptedModel([
+                ModelTurn("", (ToolCall("list-1", "list_files", {}),)),
+                ModelTurn("", prompt_tokens=11, completion_tokens=0),
+                ModelTurn("The workspace is empty.", prompt_tokens=13, completion_tokens=5),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Inspect it")
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(result.answer, "The workspace is empty.")
+            self.assertEqual(len(model.seen), 3)
+            self.assertIn("empty", model.seen[2][0]["content"].lower())
+            self.assertEqual(result.prompt_tokens, 24)
+
+    def test_repeated_empty_model_turn_fails_without_claiming_completion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Workspace(Path(directory))
+            model = ScriptedModel([
+                ModelTurn("", (ToolCall("list-1", "list_files", {}),)),
+                ModelTurn(""), ModelTurn(""), ModelTurn(""),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: False)).ask("Inspect it")
+            self.assertEqual(result.status, "model_error")
+            self.assertIn("empty", result.answer.lower())
+            self.assertEqual(result.tool_calls, 1)
+            self.assertEqual(len(model.seen), 4)

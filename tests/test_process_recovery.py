@@ -41,6 +41,7 @@ class ProcessRecoveryTests(unittest.TestCase):
                     ModelTurn("", (ToolCall(f"retry-{attempt}", "run_command", {"argv": argv, "timeout": 3}),)),
                     ModelTurn("", (ToolCall(f"check-{attempt}", "run_command", {
                         "argv": [sys.executable, "-c", "from pathlib import Path; assert Path('count').read_text()=='1'"],
+                        "purpose": "check",
                     }),)),
                     ModelTurn("Inspected; did not replay."),
                 ])

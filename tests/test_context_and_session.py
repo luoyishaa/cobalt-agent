@@ -22,6 +22,25 @@ class ModelSequence:
 
 
 class ContextAndSessionTests(unittest.TestCase):
+    def test_context_keeps_source_read_before_old_discovery_output(self):
+        source = "   1 def calculate(value):\n" * 35
+        discovery = "source.py:1: def calculate(value):\n" * 70
+        messages = [
+            {"role": "system", "content": "rules"},
+            {"role": "user", "content": "Fix calculate"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "read", "function": {"name": "read_file", "arguments": '{"path":"source.py"}'}},
+                {"id": "search", "function": {"name": "search", "arguments": '{"query":"calculate"}'}},
+            ]},
+            {"role": "tool", "tool_call_id": "read", "content": source},
+            {"role": "tool", "tool_call_id": "search", "content": discovery},
+        ]
+        view, dropped, elided, _commands = prepare_context(messages, budget_chars=1800)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(view[-2]["content"], source)
+        self.assertTrue(view[-1]["content"].startswith("status: elided"))
+        self.assertEqual(elided, ["search"])
+
     def test_unshortenable_history_does_not_strip_current_read_on_fallback(self):
         messages = [
             {"role": "system", "content": "rules"},

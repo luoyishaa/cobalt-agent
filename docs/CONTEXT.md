@@ -10,6 +10,13 @@ This prevents a discarded turn from causing unnecessary omissions in the
 surviving turn. Tool calls retain their matching responses, and durable session
 messages are not overwritten by the model view.
 
+Within one turn, older command output is shortened first. If the view still
+exceeds the budget, directory listings, search results and saved-output pages
+are omitted before exact `read_file` results. The durable transcript retains
+every result. This keeps source lines available for editing and source-reference
+checks longer than repeatable discovery output; it does not claim to know which
+earlier result the model will need next.
+
 ## Measured boundary
 
 Run `python scripts/evaluate_context_retention.py` to compare both orders on the

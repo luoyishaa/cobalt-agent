@@ -9,7 +9,6 @@ from typing import Any
 from .workspace import Workspace
 
 DEFAULT_CONTEXT_BUDGET_CHARS = 48_000
-REPEATABLE_READ_TOOLS = {"list_files", "read_file", "search", "read_output"}
 
 
 def prepare_context(
@@ -97,24 +96,28 @@ def elide_tool_results(
             continue
         message["content"] = marker
         elided_commands.append(message["tool_call_id"])
-    for message in view:
-        if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
-            break
-        call_id = message.get("tool_call_id")
-        if message.get("role") != "tool" or call_names.get(call_id) not in REPEATABLE_READ_TOOLS:
-            continue
-        marker = (
-            "status: elided\nEarlier read result omitted from this model request to fit the context budget. "
-            "The original is retained in the session. Read the source again if its details matter."
-        )
-        if call_names.get(call_id) == "read_output":
-            locator = next((line for line in str(message.get("content", "")).splitlines()[:4]
-                            if line.startswith("output_id: ")), "")
-            marker = "status: elided\n" + locator + "\nSaved output page omitted. Use read_output to retrieve it again."
-        if len(message.get("content", "")) <= len(marker):
-            continue
-        message["content"] = marker
-        elided_reads.append(call_id)
+    # Discovery output is repeatable and usually less valuable than the exact
+    # source lines needed for an edit. Preserve file reads until those cheaper
+    # results have been omitted.
+    for tool_name in ("list_files", "search", "read_output", "read_file"):
+        for message in view:
+            if len(json.dumps(view, ensure_ascii=False)) <= budget_chars:
+                break
+            call_id = message.get("tool_call_id")
+            if message.get("role") != "tool" or call_names.get(call_id) != tool_name:
+                continue
+            marker = (
+                "status: elided\nEarlier read result omitted from this model request to fit the context budget. "
+                "The original is retained in the session. Read the source again if its details matter."
+            )
+            if tool_name == "read_output":
+                locator = next((line for line in str(message.get("content", "")).splitlines()[:4]
+                                if line.startswith("output_id: ")), "")
+                marker = "status: elided\n" + locator + "\nSaved output page omitted. Use read_output to retrieve it again."
+            if len(message.get("content", "")) <= len(marker):
+                continue
+            message["content"] = marker
+            elided_reads.append(call_id)
     return view, elided_reads, elided_commands
 
 
