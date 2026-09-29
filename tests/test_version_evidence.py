@@ -30,6 +30,72 @@ def read(path):
 
 
 class VersionEvidenceTests(unittest.TestCase):
+    def test_guarded_write_readback_shows_the_changed_region(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "large.py"
+            source.write_text("".join(f"VALUE_{index} = {index}\n" for index in range(250)),
+                              encoding="utf-8")
+            workspace = Workspace(root)
+            gate = ToolGate(workspace, lambda _n, _a: True)
+            outcome = gate.execute("replace_text", {
+                "path": "large.py", "old": "VALUE_190 = 190", "new": "VALUE_190 = 999",
+                "expected_sha256": workspace.file_digest("large.py"),
+            })
+            self.assertEqual(outcome.status, "ok")
+            self.assertIsNotNone(outcome.readback)
+            self.assertEqual(outcome.readback.start, 191)
+            self.assertIn("VALUE_190 = 999", outcome.to_message())
+            self.assertEqual(outcome.readback.digest, workspace.file_digest("large.py"))
+
+    def test_concurrent_change_after_write_readback_keeps_refresh_pending(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "value.py"
+            path.write_text("VALUE = 1\n", encoding="utf-8")
+
+            class RacingWorkspace(Workspace):
+                def read_file(self, relative, **kwargs):
+                    outcome = super().read_file(relative, **kwargs)
+                    if relative == "value.py" and "VALUE = 2" in outcome.message:
+                        path.write_text("VALUE = 3\n", encoding="utf-8")
+                    return outcome
+
+            workspace = RacingWorkspace(root)
+            result = Agent(workspace, Script([
+                read("value.py"),
+                ModelTurn("", (ToolCall("edit", "replace_text", {
+                    "path": "value.py", "old": "VALUE = 1", "new": "VALUE = 2",
+                    "expected_sha256": workspace.file_digest("value.py"),
+                }),)),
+            ]), ToolGate(workspace, lambda _n, _a: True)).ask("Change to 2")
+            self.assertEqual(result.status, "unverified")
+            self.assertEqual(result.unrefreshed_paths, ["value.py"])
+            self.assertEqual(path.read_text(encoding="utf-8"), "VALUE = 3\n")
+
+    def test_guarded_write_reads_back_its_persisted_edit_before_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "value.py").write_text("VALUE = 1\n", encoding="utf-8")
+            workspace = Workspace(root)
+            digest = workspace.file_digest("value.py")
+            model = Script([
+                read("value.py"),
+                ModelTurn("", (ToolCall("edit", "replace_text", {
+                    "path": "value.py", "old": "VALUE = 1", "new": "VALUE = 2",
+                    "expected_sha256": digest,
+                }),)),
+                command("check", "from value import VALUE; assert VALUE == 2", purpose="check"),
+                ModelTurn("I modified value.py. Tests passed."),
+            ])
+            result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True)).ask("Change to 2")
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(result.unrefreshed_paths, [])
+            self.assertEqual(len(result.verified_commands), 1)
+            self.assertEqual((root / "value.py").read_text(encoding="utf-8"), "VALUE = 2\n")
+            events = (root / ".cobalt" / "runs" / result.run_id / "events.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"source": "write_readback"', events)
+
     def test_read_changed_before_delivery_does_not_clear_refresh_requirement(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

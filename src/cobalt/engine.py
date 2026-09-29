@@ -29,8 +29,10 @@ from .workspace import Workspace
 SYSTEM = """You are Cobalt, a local coding assistant for one repository.
 Use tools to establish repository facts before making claims about files.
 For file edits, read the file first and pass its SHA-256 to replace_text.
-After changing code, run a relevant command with purpose="check" and reread every changed file before
-answering. If validation did not pass,
+After changing code, run a relevant command with purpose="check" and inspect the
+current version of every changed file before answering. Guarded writes may return
+a post-write readback; if absent, or if a command/external writer changes files,
+call read_file yourself. If validation did not pass,
 say clearly that the change is unverified. Never claim a tool ran unless it did.
 Use purpose="inspect" (or omit it) for commands that only read or explore.
 A successful inspection command is not a check of the requested behavior.
@@ -384,8 +386,7 @@ class Agent:
                         status=outcome.status, changed=outcome.changed,
                         path=outcome.path, digest=outcome.digest,
                         output=outcome.message[:2000],
-                        output_tail=(outcome.message[-1000:] if call.name == "run_command"
-                                     and outcome.status != "ok" else ""),
+                        output_tail=(outcome.message[-1000:] if call.name == "run_command" else ""),
                         changes=outcome.changes, workspace_fingerprint=outcome.workspace_fingerprint,
                         observation_errors=outcome.observation_errors,
                     )
@@ -413,6 +414,17 @@ class Agent:
                                 and last_snapshot.files.get(outcome.path, "").endswith(":" + outcome.digest)):
                             pending_refresh.remove(outcome.path)
                             journal.add("post_edit_read_completed", path=outcome.path, digest=outcome.digest)
+                    if outcome.readback:
+                        observed = outcome.readback
+                        if (observed.path in pending_refresh and
+                                last_snapshot.files.get(observed.path, "").endswith(":" + observed.digest)):
+                            pending_refresh.remove(observed.path)
+                            self.evidence.observe(observed.path, observed.digest,
+                                                  start=observed.start, lines=observed.end - observed.start + 1)
+                            read_spans.append(ReadSpan(observed.path, observed.start, observed.end,
+                                                       observed.digest, call.call_id))
+                            journal.add("post_edit_read_completed", path=observed.path,
+                                        digest=observed.digest, source="write_readback")
                     if call.name in {"list_files", "read_file", "search", "run_command", "read_output"} and outcome.status == "ok":
                         observed_repository = True
                     if (call.name == "run_command" and call.arguments.get("purpose") == "check"

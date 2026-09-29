@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import unittest
@@ -106,6 +107,47 @@ class StaleCitationModel:
 
 
 class EvaluationTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("COBALT_RUN_DOCKER_TESTS") == "1", "requires a local Docker image")
+    def test_python_fixture_command_uses_declared_container_import_path(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+        source = fixtures / "fixtures" / "grades" / "grades.py"
+
+        class TestModel:
+            def __init__(self, argv):
+                self.turns = iter([
+                    ModelTurn("", (ToolCall("read", "read_file", {"path": "grades.py"}),)),
+                    ModelTurn("", (ToolCall("edit", "replace_text", {
+                        "path": "grades.py", "old": "return sum(scores) / len(scores)",
+                        "new": "return sum(scores) / len(scores) if scores else 0.0",
+                        "expected_sha256": digest_bytes(source.read_bytes()),
+                    }),)),
+                    ModelTurn("", (ToolCall("check", "run_command", {
+                        "argv": argv, "purpose": "check",
+                    }),)),
+                    ModelTurn("I modified grades.py. Tests passed."),
+                ])
+
+            def complete(self, _messages, _tools):
+                return next(self.turns, ModelTurn("I modified grades.py. Tests passed."))
+
+        case = {"id": "import_path_parity", "fixture": "fixtures/grades",
+                "request": "Fix the empty average", "kind": "repair", "hidden_verifier": "verifiers/grades",
+                "check_output_regex": r"(?m)Ran [1-9][0-9]* tests? in "}
+        direct = lambda: TestModel(["python", "tests/test_grades.py"])
+        module = lambda: TestModel(["python", "-m", "unittest", "discover", "-s", "tests", "-q"])
+        without = run_case(case, fixtures, direct, command_image="cobalt/python:3.11")
+        with_path = run_case(case, fixtures, direct, command_image="cobalt/python:3.11",
+                             command_env={"PYTHONPATH": "/workspace"})
+        executed = run_case(case, fixtures, module, command_image="cobalt/python:3.11",
+                            command_env={"PYTHONPATH": "/workspace"})
+        self.assertFalse(without["passed"])
+        self.assertFalse(with_path["passed"])
+        self.assertFalse(with_path["test_execution_evidence"])
+        self.assertEqual(with_path["failure_category"], "no_executed_test_evidence")
+        self.assertEqual(with_path["successful_commands"], 1)
+        self.assertTrue(executed["passed"])
+        self.assertTrue(executed["test_execution_evidence"])
+
     def test_failed_command_record_keeps_argv_and_error_tail(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
         argv = [sys.executable, "-c",

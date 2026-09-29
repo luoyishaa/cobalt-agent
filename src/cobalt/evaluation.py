@@ -61,7 +61,8 @@ class EvaluationGate(ToolGate):
 
 
 def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[[], Model],
-             *, output_retrieval: bool = True, command_image: str | None = None) -> dict[str, Any]:
+             *, output_retrieval: bool = True, command_image: str | None = None,
+             command_env: dict[str, str] | None = None) -> dict[str, Any]:
     source = (fixtures_root / case["fixture"]).resolve()
     if not source.is_dir() or not source.is_relative_to(fixtures_root.resolve()):
         raise ValueError("case fixture is missing or outside fixture root")
@@ -89,7 +90,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 raise ValueError("repair case already passes its external verifier before the agent runs")
         original_tests = test_sources(workspace_path)
         workspace = Workspace(workspace_path, command_runner=(
-            DockerCommandRunner(workspace_path, command_image) if command_image else None
+            DockerCommandRunner(workspace_path, command_image, container_env=command_env)
+            if command_image else None
         ))
         agent = Agent(workspace, model_factory(), EvaluationGate(workspace, output_retrieval), max_tool_calls=12)
         started = time.monotonic()
@@ -109,8 +111,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 "path": event.get("path"),
                 "changed": event["changed"],
                 "output_excerpt": event.get("output", "")[:300],
-                "output_tail": event.get("output_tail", "") if event["name"] == "run_command"
-                and event["status"] != "ok" else "",
+                "output_tail": event.get("output_tail", "") if event["name"] == "run_command" else "",
             }
             for event in events if event["kind"] == "tool_finished"
         ]
@@ -118,6 +119,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         verifier_output = ""
         protected_files_changed = original_tests != test_sources(workspace_path)
         executions = None
+        test_execution_evidence = None
         if case["kind"] == "output_retrieval":
             receipt_path = workspace_path / ".cobalt" / "receipt.json"
             try:
@@ -155,9 +157,23 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             )
             verifier_exit = verified.returncode
             verifier_output = (verified.stdout + "\n" + verified.stderr).strip()[:500]
+            if "check_output_regex" in case:
+                pattern = re.compile(case["check_output_regex"])
+                last_change = max((index for index, event in enumerate(events)
+                                   if event["kind"] == "tool_finished" and event.get("changes")), default=-1)
+                test_execution_evidence = any(
+                    pattern.search(event.get("output", "") + "\n" + event.get("output_tail", ""))
+                    for index, event in enumerate(events)
+                    if index > last_change and event["kind"] == "tool_finished"
+                    and event.get("name") == "run_command" and event.get("status") == "ok"
+                    and event.get("args", {}).get("purpose") == "check"
+                    and event.get("args", {}).get("argv") in result.verified_commands
+                    and event.get("workspace_fingerprint") == result.verification_fingerprint
+                )
             passed = (
                 verifier_exit == 0 and bool(result.changed_paths)
                 and bool(result.verified_commands) and not protected_files_changed
+                and test_execution_evidence is not False
                 and result.status in {"completed", "unverified"}
             )
         elif case["kind"] == "question":
@@ -202,6 +218,8 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
                 failure_category = "verifier_failed"
             elif case["kind"] == "repair" and not result.changed_paths:
                 failure_category = "no_file_change"
+            elif case["kind"] == "repair" and result.verified_commands and test_execution_evidence is False:
+                failure_category = "no_executed_test_evidence"
             elif case["kind"] == "repair":
                 failure_category = "no_successful_check"
             elif case["kind"] == "workflow" and not commands_match:
@@ -227,6 +245,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
             "verification_fingerprint": result.verification_fingerprint,
             "observation_errors": result.observation_errors,
             "successful_commands": len(result.verified_commands),
+            "test_execution_evidence": test_execution_evidence,
             "verifier_exit": verifier_exit,
             "baseline_verifier_exit": baseline_exit,
             "verifier_output_excerpt": verifier_output,

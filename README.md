@@ -56,7 +56,9 @@ one observed outcome, not a reliability estimate. API usage may incur charges.
   the saved output without rerunning the command, including after a session restart.
   Failed-command previews retain the tail of stderr even after noisy stdout.
 - The answer is marked unverified if an edit has no later successful check.
-- After an edit, the agent must reread the changed file before its final answer.
+- Guarded edits return a bounded readback of the persisted file version when
+  available. Other changes, including command effects, require a fresh read
+  before the final answer.
 - Missing final evidence receives up to two checklist reminders within the
   original tool budget. Unverified drafts stay in the run record; the delivered
   answer names the missing evidence instead of repeating unsupported confidence.

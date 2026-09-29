@@ -20,6 +20,15 @@ class ModelTurn:
 
 
 @dataclass(frozen=True)
+class FileReadback:
+    path: str
+    digest: str
+    start: int
+    end: int
+    text: str
+
+
+@dataclass(frozen=True)
 class ToolOutcome:
     status: Literal["ok", "error", "denied"]
     message: str
@@ -30,6 +39,8 @@ class ToolOutcome:
     changes: dict[str, str] = field(default_factory=dict)
     workspace_fingerprint: str | None = None
     observation_errors: tuple[str, ...] = ()
+    edit_line: int | None = None
+    readback: FileReadback | None = None
 
     def to_message(self) -> str:
         body = self.message[:12_000]
@@ -44,6 +55,10 @@ class ToolOutcome:
             parts.append("Observed workspace changes: " + str(self.changes))
         if self.observation_errors:
             parts.append("Workspace observation incomplete; changes and validation cannot be certified.")
+        if self.readback:
+            parts.append(f"Post-write readback from {self.readback.path}:"
+                         f"{self.readback.start}-{self.readback.end} "
+                         f"sha256: {self.readback.digest}\n{self.readback.text}")
         return "\n".join(parts)
 
 

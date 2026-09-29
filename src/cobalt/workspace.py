@@ -160,9 +160,11 @@ class Workspace:
             raise ValueError("mixed or bare-CR newlines: multiline replacement is unsupported")
         if content.count(old) != 1:
             raise ValueError("old text must occur exactly once")
+        edit_line = content[:content.index(old)].count("\n") + 1
         updated = content.replace(old, new, 1).encode("utf-8")
         self._atomic_write(path, updated)
-        return ToolOutcome("ok", "text replaced", self._rel(path), digest_bytes(updated), changed=True)
+        return ToolOutcome("ok", "text replaced", self._rel(path), digest_bytes(updated),
+                           changed=True, edit_line=edit_line)
 
     def create_file(self, relative: str, content: str) -> ToolOutcome:
         path = self._path(relative)
@@ -172,7 +174,8 @@ class Workspace:
         path = self._path(relative)
         data = content.encode("utf-8")
         self._atomic_write(path, data, create_only=True)
-        return ToolOutcome("ok", "file created", self._rel(path), digest_bytes(data), changed=True)
+        return ToolOutcome("ok", "file created", self._rel(path), digest_bytes(data),
+                           changed=True, edit_line=1)
 
     @staticmethod
     def _atomic_write(path: Path, data: bytes, *, create_only: bool = False) -> None:

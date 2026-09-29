@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
-from .domain import ToolOutcome
+from .domain import FileReadback, ToolOutcome
 from .outputs import OutputStore
 from .workspace import Workspace
 
@@ -54,10 +54,10 @@ TOOL_SCHEMAS = [
     _tool("search", "Find literal text in repository files. Scope to a file or directory when global results are noisy or truncated.", {
         "query": string_field("Text to find"),
         "path": string_field("Optional relative file or directory; default '.'")}, ["query"]),
-    _tool("replace_text", "Replace one exact block in a file after checking its SHA-256.", {
+    _tool("replace_text", "Replace one exact block after checking its SHA-256. Returns a bounded readback of the persisted edit when available.", {
         "path": string_field("Relative file path"), "old": string_field("Exact old text"), "new": string_field("Replacement text"),
         "expected_sha256": string_field("SHA-256 returned by read_file")}, ["path", "old", "new", "expected_sha256"]),
-    _tool("create_file", "Create a new file without overwriting any existing file.", {
+    _tool("create_file", "Create a new file without overwriting any existing file. Returns a bounded readback when available.", {
         "path": string_field("Relative new file path"), "content": string_field("Full file content")}, ["path", "content"]),
     _tool("run_command", "Run an argv command in the repository root without a shell. Only purpose='check' can count as agent-selected verification; inspection is the default. Requires approval.", {
         "argv": {"type": "array", "items": {"type": "string"}, "minItems": 1},
@@ -128,9 +128,24 @@ class ToolGate:
             return outcome
         after = self.workspace.snapshot()
         changes = after.changes_from(before)
+        readback = None
+        if (name in {"replace_text", "create_file"} and outcome.status == "ok"
+                and outcome.path and outcome.digest and outcome.edit_line
+                and not after.errors
+                and after.files.get(outcome.path, "").endswith(":" + outcome.digest)):
+            # Only a guarded write can carry its own post-write read. A command's
+            # changed paths are unknown effects and still require explicit reads.
+            try:
+                read = self.workspace.read_file(outcome.path, start=outcome.edit_line, lines=24)
+                if read.status == "ok" and read.digest == outcome.digest and len(read.message) <= 4000:
+                    readback = FileReadback(outcome.path, read.digest, outcome.edit_line,
+                                            outcome.edit_line + 23, read.message)
+            except (OSError, ValueError, UnicodeError):
+                pass  # The write happened; keep the ordinary explicit-read obligation.
         return replace(outcome, changes=changes, workspace_fingerprint=after.fingerprint,
                        observation_errors=before.errors + after.errors,
                        changed=outcome.changed or bool(changes),
+                       readback=readback,
                        verified=outcome.verified and before.fingerprint is not None
                        and before.fingerprint == after.fingerprint)
 

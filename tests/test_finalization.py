@@ -51,16 +51,15 @@ class FinalizationTests(unittest.TestCase):
             self.assertEqual(result.unrefreshed_paths, [])
             self.assertIn("no successful command", result.answer)
 
-    def test_missing_read_and_check_can_be_completed_within_original_tool_budget(self):
+    def test_auto_readback_and_missing_check_can_be_completed_within_original_tool_budget(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
-            model = Sequence([create(), ModelTurn("Everything is verified."), read(), check(), ModelTurn("Checked.")])
+            model = Sequence([create(), ModelTurn("Everything is verified."), check(), ModelTurn("Checked.")])
             result = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True), max_tool_calls=4).ask("Create a check")
             self.assertEqual(result.status, "completed")
-            self.assertEqual(result.tool_calls, 3)
+            self.assertEqual(result.tool_calls, 2)
             self.assertEqual(result.answer, "Checked.")
             feedback = model.seen[2][0]["content"]
-            self.assertIn("check.py", feedback)
             self.assertIn("Run a relevant successful check", feedback)
             self.assertIn("Everything is verified.", feedback)
 
@@ -81,18 +80,20 @@ class FinalizationTests(unittest.TestCase):
             self.assertEqual(result.status, "limit")
             self.assertEqual(result.tool_calls, 2)
             self.assertNotIn("Everything is verified", result.answer)
-            self.assertEqual(result.unrefreshed_paths, ["check.py"])
+            self.assertEqual(result.unrefreshed_paths, [])
 
     def test_unresolved_draft_is_retained_but_not_delivered_as_verified(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Workspace(Path(directory))
-            model = Sequence([create(), check()])
+            model = Sequence([create(), ModelTurn("", (ToolCall("failed-check", "run_command", {
+                "argv": [sys.executable, "-c", "raise SystemExit(1)"], "purpose": "check",
+            }),))])
             agent = Agent(workspace, model, ToolGate(workspace, lambda _n, _a: True))
             result = agent.ask("Create and inspect a check")
             self.assertEqual(result.status, "unverified")
             self.assertTrue(result.answer.startswith("Unverified"))
             self.assertNotIn("Everything is verified", result.answer)
-            self.assertIn("check.py", result.answer)
+            self.assertIn("no successful command", result.answer)
             self.assertEqual(result.model_answer, "Everything is verified.")
             self.assertEqual(len(model.seen), 5)  # Two tools plus three final attempts.
             self.assertEqual(agent.messages[-1]["content"], result.answer)

@@ -17,9 +17,12 @@ meaningful test.
    records. Observations after model responses detect external edits made while
    the model was responding. Existing dirty files form the initial baseline and
    are not attributed to this run.
-4. Surviving changed files must be reread. The returned digest must match the
-   observed current version; a read overtaken by another writer cannot satisfy
-   this requirement. Deleted files are recorded without requiring a reread.
+4. Surviving changed files need a fresh read of their current version. Guarded
+   `replace_text` and `create_file` operations can return a bounded readback
+   immediately after writing. If that readback is unavailable, or a command or
+   external process changes a file, the agent must call `read_file`. The read
+   digest must match the observed current version; a read overtaken by another
+   writer cannot satisfy this requirement. Deleted files need no reread.
 5. Incomplete observation prevents `completed` for the remainder of this run.
    The result reports `observation_errors`. Read failures are not interpreted as
    proof that a file was deleted.
@@ -62,7 +65,8 @@ resume.
 | External write while the model answers | `unverified`; changed path recorded |
 | Later command fails after an earlier success | Previous evidence revoked |
 | One failed command creates, modifies and deletes files | All three changes reported; no successful evidence |
-| Edit, subsequent successful check, fresh read | `completed`; fingerprint matches the observed current files |
+| Guarded edit with readback, subsequent successful check | `completed`; fingerprint matches the observed current files |
+| Command edit, subsequent successful check, fresh read | `completed`; command effects still need explicit inspection |
 | Edit, fresh read, successful inspection command | `unverified`; no declared check evidence |
 | Delete, subsequent check confirming absence | Completion allowed without rereading a missing file |
 | Snapshot reports an injected I/O failure | `unverified`; observation errors retained |

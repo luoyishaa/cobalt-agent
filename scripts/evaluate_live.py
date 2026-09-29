@@ -27,9 +27,10 @@ def main() -> None:
     if not 1 <= args.repeat <= 10:
         parser.error("--repeat must be 1..10")
     root = Path(__file__).resolve().parents[1]
-    DockerCommandRunner(root, args.image)
-    config = resolve_config(env_file=root / ".env", provider=args.provider, model=args.model)
     data = json.loads((root / "benchmarks" / "cases.json").read_text(encoding="utf-8"))
+    container_env = data.get("container_env", {})
+    DockerCommandRunner(root, args.image, container_env=container_env)
+    config = resolve_config(env_file=root / ".env", provider=args.provider, model=args.model)
     cases = [case for case in data["cases"] if not args.case or case["id"] in args.case]
     if not cases:
         parser.error("no matching cases")
@@ -46,7 +47,7 @@ def main() -> None:
         for attempt in range(1, args.repeat + 1):
             row = run_case(case, root / "benchmarks", lambda: from_config(config),
                            output_retrieval=not args.without_output_retrieval,
-                           command_image=args.image)
+                           command_image=args.image, command_env=container_env)
             row["attempt"] = attempt
             rows.append(row)
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=False)
@@ -55,6 +56,7 @@ def main() -> None:
         "provider": config.provider,
         "model": config.model,
         "command_image": args.image,
+        "container_env": container_env,
         "output_retrieval_enabled": not args.without_output_retrieval,
         "repeats_per_case": args.repeat,
         "commit": commit.stdout.strip() if commit.returncode == 0 else "uncommitted",

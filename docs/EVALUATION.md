@@ -11,8 +11,9 @@ We report three different claims separately:
    the agent starts. For question cases, the evaluator requires a real read and
    expected answer terms.
 3. **Process evidence:** each row records the agent's status, tool calls,
-   successful commands, post-edit reads, answer-source audit, elapsed time, and
-   provider-reported token use. A repair may pass its external verifier while
+   successful commands, evidence that its own test runner executed nonzero tests,
+   post-edit reads, answer-source audit, elapsed time, and provider-reported
+   token use. A repair may pass its external verifier while
    its explanation is `unverified` because it cites code that changed after
    the last read. Both facts are reported separately.
 
@@ -39,6 +40,19 @@ about general coding success. Each live row also records individual tool
 outcomes and a failure category. The answer grader for repository questions
 checks that a file was read and required facts appear; it is a lightweight
 task-specific check, not a general factuality judge.
+The Python fixture container sets `PYTHONPATH=/workspace`, matching the
+external verifier's import root. This makes direct test-file invocations and
+module-based invocations see the same project modules. The container environment
+is recorded in each live report; it is not inherited from the host.
+Each repair case specifies `check_output_regex`. A successful agent-selected
+command counts as executed-test evidence only when its recorded output matches
+that case's nonzero-test pattern after the last file change. For example,
+`python tests/test_grades.py` can exit 0 while running zero tests; it does not
+satisfy this evidence requirement. The independent external verifier still
+decides code correctness. Output matching is a bounded smoke-test contract,
+not proof of test coverage or protection against a deliberately fabricated log.
+Reports before this requirement used the weaker exit-code-only process check;
+their raw results are retained under their original protocol.
 The source-audit count includes an answer only when it contains at least one
 explicit `file:line` location and none of those locations is unsupported.
 The live runner refuses an uncommitted working tree by default so a report's
