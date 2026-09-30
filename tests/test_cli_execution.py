@@ -92,7 +92,7 @@ class CliExecutionTests(unittest.TestCase):
                 def __init__(self, workspace, *_args, **_kwargs):
                     self.workspace = workspace
 
-                def ask(self, question):
+                def ask(self, question, *, require_change=False):
                     seen_requests.append(question)
                     result = RunResult("run-012345abcdef", "finished", "completed", 0)
                     Journal(self.workspace.root, result.run_id).finish(result)
@@ -114,6 +114,20 @@ class CliExecutionTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as caught:
                 main(["--workspace", directory, "--yes", "inspect this repository"])
             self.assertEqual(caught.exception.code, 2)
+
+    def test_required_change_rejects_read_only_mode_before_model_setup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            task_file = root / "task.json"
+            task_file.write_text(json.dumps({
+                "request": "Fix the bug", "checks": [["python", "-m", "unittest"]],
+                "protected_paths": [], "require_change": True,
+            }), encoding="utf-8")
+            with patch("cobalt.cli.resolve_config") as config:
+                code = main(["--workspace", directory, "--mode", "ask",
+                             "--task-file", str(task_file)])
+            self.assertEqual(code, 2)
+            config.assert_not_called()
 
     def test_container_mode_refuses_missing_docker_before_model_setup(self):
         with tempfile.TemporaryDirectory() as directory:

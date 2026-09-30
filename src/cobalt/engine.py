@@ -108,14 +108,18 @@ class Agent:
     def continue_task(self) -> RunResult:
         if self.unfinished_task is None:
             raise ValueError("this session has no unfinished task to continue")
-        return self.ask(self.unfinished_task.request, continue_previous=True)
+        return self.ask(self.unfinished_task.request, continue_previous=True,
+                        require_change=self.unfinished_task.require_change)
 
-    def ask(self, question: str, *, continue_previous: bool = False) -> RunResult:
+    def ask(self, question: str, *, continue_previous: bool = False,
+            require_change: bool = False) -> RunResult:
         if not question.strip():
             raise ValueError("question must not be empty")
         previous = self.unfinished_task if continue_previous else None
         if continue_previous and previous is None:
             raise ValueError("this session has no unfinished task to continue")
+        if previous:
+            require_change = previous.require_change
         if not continue_previous:
             self.unfinished_task = None
         task_request = previous.request if previous else question
@@ -124,7 +128,7 @@ class Agent:
                         "check the final behavior. Original request:\n" + task_request)
         run_id = "run-" + uuid.uuid4().hex[:12]
         journal = Journal(self.workspace.root, run_id)
-        journal.add("run_started", question=question)
+        journal.add("run_started", question=question, require_change=require_change)
         if previous:
             journal.add("run_continued", previous_run_id=previous.last_run_id,
                         inherited_changed_paths=list(previous.changed_paths))
@@ -152,7 +156,8 @@ class Agent:
         verification_fingerprint = None
 
         def finish(result: RunResult) -> RunResult:
-            self.unfinished_task = (UnfinishedTask(task_request, tuple(changed_paths), run_id)
+            self.unfinished_task = (UnfinishedTask(task_request, tuple(changed_paths), run_id,
+                                                   require_change)
                                     if result.status in {"limit", "model_error"} else None)
             journal.finish(result)
             self._save_session()
@@ -284,6 +289,9 @@ class Agent:
                             unsupported_action_claims=unsupported_actions)
                 verified_after_edit = bool(changed_paths and verified_commands)
                 missing = []
+                if require_change and not attributed_changes:
+                    missing.append("This task requires a repository change. Make the requested change "
+                                   "with tools, or explain why you cannot complete it; a proposed fix is not an edit.")
                 if pending_refresh:
                     missing.append("Call read_file for every changed file, including newly created tests: "
                                    + ", ".join(sorted(pending_refresh)))
@@ -310,6 +318,7 @@ class Agent:
                     continue
                 status = "completed" if (
                     ((not changed_paths and observed_repository) or verified_after_edit)
+                    and (not require_change or bool(attributed_changes))
                     and not unsupported and not unsupported_actions and not pending_refresh and not observation_errors
                 ) else "unverified"
                 model_answer = answer
@@ -317,6 +326,8 @@ class Agent:
                     answer = "Unverified — runtime evidence is incomplete. The model draft is retained in the run record."
                 if changed_paths and not verified_after_edit:
                     answer += "\n\nVerification: no successful command with purpose='check' and without observed changes supports the current workspace version."
+                if require_change and not attributed_changes:
+                    answer += "\n\nOutcome: this task required a repository change, but none was observed."
                 elif not observed_repository and not verified_commands:
                     answer += "\n\nEvidence: no repository tool ran in this turn; check repository claims before relying on them."
                 if unsupported:

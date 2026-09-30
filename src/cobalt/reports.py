@@ -100,6 +100,7 @@ def initial_report(root: Path, result: RunResult, directory: Path) -> dict[str, 
     patch, warnings = final_patch(root)
     (directory / "final.patch").write_bytes(patch.encode("utf-8"))
     events = [json.loads(line) for line in (directory / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    started = next((event for event in events if event["kind"] == "run_started"), {})
     continuation = next((event for event in events if event["kind"] == "run_continued"), None)
     tool_counts: dict[str, int] = {}
     last_modified_index = max((index for index, event in enumerate(events)
@@ -124,6 +125,7 @@ def initial_report(root: Path, result: RunResult, directory: Path) -> dict[str, 
         "continued_from_run": continuation["previous_run_id"] if continuation else None,
         "inherited_changed_paths": continuation["inherited_changed_paths"] if continuation else [],
         "agent_status": result.status,
+        "require_change": started.get("require_change", False),
         "validation_status": "self_checked" if result.verified_commands else "not_checked",
         "validation_source": "agent_selected" if result.verified_commands else "none",
         "verified_commands": result.verified_commands,

@@ -36,6 +36,7 @@ class CliContinuationIntegrationTests(unittest.TestCase):
                 "request": "Return 0.0 for an empty average without changing other results.",
                 "checks": [["python", "-m", "unittest", "discover", "-s", "tests", "-v"]],
                 "protected_paths": ["tests/test_grades.py"],
+                "require_change": True,
             }), encoding="utf-8")
             first_model = SequenceModel([
                 ModelTurn("", (ToolCall("source", "read_file", {"path": "grades.py"}),)),
@@ -55,6 +56,7 @@ class CliContinuationIntegrationTests(unittest.TestCase):
             first_report = next((isolated / ".cobalt" / "runs").glob("*/report.json"))
             first_data = json.loads(first_report.read_text(encoding="utf-8"))
             self.assertEqual(first_data["agent_status"], "limit")
+            self.assertTrue(first_data["require_change"])
             self.assertEqual(first_data["validation_status"], "failed")
             digest = hashlib.sha256((source / "grades.py").read_bytes()).hexdigest()
             second_model = SequenceModel([
@@ -83,6 +85,7 @@ class CliContinuationIntegrationTests(unittest.TestCase):
                                if path.parent.name != first_data["run_id"])
             self.assertEqual(second_data["continued_from_run"], first_data["run_id"])
             self.assertEqual(second_data["agent_status"], "completed")
+            self.assertTrue(second_data["require_change"])
             self.assertEqual(second_data["validation_status"], "passed")
             self.assertEqual(second_data["checks"][0]["status"], "passed")
             self.assertEqual(second_data["protected_paths_changed"], [])

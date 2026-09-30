@@ -7,7 +7,7 @@ from pathlib import Path
 from cobalt.context import EvidenceBook, prepare_context, select_recent_turns
 from cobalt.domain import ModelTurn, ToolCall
 from cobalt.engine import Agent
-from cobalt.session import SessionStore
+from cobalt.session import SessionStore, UnfinishedTask
 from cobalt.tools import ToolGate
 from cobalt.workspace import Workspace
 
@@ -204,6 +204,19 @@ class ContextAndSessionTests(unittest.TestCase):
             path.write_text(json.dumps(data), encoding="utf-8")
             _messages, _observations, _resolved, unfinished = store.load_state(session_id)
             self.assertIsNone(unfinished)
+
+    def test_required_change_survives_resume_and_older_checkpoint_defaults_false(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SessionStore(Path(directory))
+            session_id = store.new_id()
+            checkpoint = UnfinishedTask("Fix the cache", (), "run-111111111111", True)
+            path = store.save(session_id, [{"role": "system", "content": "rules"}], {},
+                              unfinished_task=checkpoint)
+            self.assertTrue(store.load_state(session_id)[3].require_change)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["unfinished_task"].pop("require_change")
+            path.write_text(json.dumps(data), encoding="utf-8")
+            self.assertFalse(store.load_state(session_id)[3].require_change)
 
     def test_model_error_can_resume_the_same_request_after_provider_recovery(self):
         with tempfile.TemporaryDirectory() as directory:

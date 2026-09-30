@@ -17,6 +17,7 @@ class UnfinishedTask:
     request: str
     changed_paths: tuple[str, ...]
     last_run_id: str
+    require_change: bool = False
 
 
 def close_interrupted_calls(messages: list[dict[str, Any]]) -> list[str]:
@@ -139,14 +140,18 @@ class SessionStore:
                 or not isinstance(resolved, list) or any(not isinstance(item, str) for item in resolved)):
             raise TypeError("invalid session contents")
         if task is not None:
-            if (not isinstance(task, dict) or set(task) != {"request", "changed_paths", "last_run_id"}
+            if (not isinstance(task, dict) or
+                    not {"request", "changed_paths", "last_run_id"} <= set(task) or
+                    set(task) - {"request", "changed_paths", "last_run_id", "require_change"}
                     or not isinstance(task["request"], str) or not task["request"].strip()
                     or not isinstance(task["last_run_id"], str)
                     or not re.fullmatch(r"run-[a-f0-9]{12}", task["last_run_id"])
                     or not isinstance(task["changed_paths"], list)
+                    or not isinstance(task.get("require_change", False), bool)
                     or any(not isinstance(path, str) for path in task["changed_paths"])):
                 raise TypeError("invalid unfinished task")
-            task = UnfinishedTask(task["request"], tuple(task["changed_paths"]), task["last_run_id"])
+            task = UnfinishedTask(task["request"], tuple(task["changed_paths"]),
+                                  task["last_run_id"], task.get("require_change", False))
         return messages, observations, set(resolved), task
 
     def latest(self) -> str | None:

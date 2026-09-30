@@ -124,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     try:
         task = load_task(args.task_file) if args.task_file else None
+        if task and task.require_change and args.mode == "ask":
+            raise ValueError("a task requiring a repository change cannot use read-only --mode ask")
         source = Workspace(args.workspace)
         if args.execution == "container":
             # Check the runtime before copying large repositories or resolving credentials.
@@ -186,7 +188,8 @@ def main(argv: list[str] | None = None) -> int:
     approval = _approval(args.yes)
 
     def ask(question: str) -> int:
-        result = agent.continue_task() if args.continue_task else agent.ask(question)
+        result = (agent.continue_task() if args.continue_task else
+                  agent.ask(question, require_change=task.require_change if task else False))
         report_path = workspace.root / ".cobalt" / "runs" / result.run_id
         report = json.loads((report_path / "report.json").read_text(encoding="utf-8"))
         report["execution_mode"] = args.execution

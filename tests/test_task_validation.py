@@ -10,6 +10,23 @@ from cobalt.workspace import Workspace
 
 
 class TaskValidationTests(unittest.TestCase):
+    def test_required_change_is_explicit_and_part_of_task_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "task.json"
+            base = {"request": "Repair the bug", "checks": [["python", "-m", "unittest"]],
+                    "protected_paths": []}
+            path.write_text(json.dumps(base), encoding="utf-8")
+            optional = load_task(path)
+            self.assertFalse(optional.require_change)
+            path.write_text(json.dumps({**base, "require_change": True}), encoding="utf-8")
+            required = load_task(path)
+            self.assertTrue(required.require_change)
+            self.assertNotEqual(required.fingerprint(), optional.fingerprint())
+            self.assertIn("repository change is required", required.agent_request())
+            path.write_text(json.dumps({**base, "require_change": "yes"}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "require_change must be a boolean"):
+                load_task(path)
+
     def test_user_check_passes_but_protected_file_change_fails_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

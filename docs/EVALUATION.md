@@ -9,7 +9,8 @@ We report three different claims separately:
    For repair cases, tests outside the agent's workspace check the final code,
    and visible tests must remain unchanged. The external tests must fail before
    the agent starts. For question cases, the evaluator requires a real read and
-   expected answer terms.
+   expected answer terms. Repair cases also require a final repository change;
+   a read-only proposal cannot count as a completed repair.
 3. **Process evidence:** each row records the agent's status, tool calls,
    successful commands, evidence that its own test runner executed nonzero tests,
    post-edit reads, answer-source audit, elapsed time, and provider-reported

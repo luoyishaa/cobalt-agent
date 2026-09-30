@@ -95,7 +95,7 @@ def run_case(case: dict[str, Any], fixtures_root: Path, model_factory: Callable[
         ))
         agent = Agent(workspace, model_factory(), EvaluationGate(workspace, output_retrieval), max_tool_calls=12)
         started = time.monotonic()
-        result = agent.ask(case["request"])
+        result = agent.ask(case["request"], require_change=case["kind"] == "repair")
         elapsed = round(time.monotonic() - started, 3)
         event_path = workspace_path / ".cobalt" / "runs" / result.run_id / "events.jsonl"
         events = [json.loads(line) for line in event_path.read_text(encoding="utf-8").splitlines()]

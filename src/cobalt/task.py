@@ -18,16 +18,21 @@ class TaskSpec:
     request: str
     checks: tuple[tuple[str, ...], ...]
     protected_paths: tuple[str, ...]
+    require_change: bool = False
 
     def fingerprint(self) -> str:
         contract = [self.request, self.checks, self.protected_paths]
+        if self.require_change:
+            contract.append({"require_change": True})
         return hashlib.sha256(json.dumps(contract, ensure_ascii=False).encode("utf-8")).hexdigest()
 
     def agent_request(self) -> str:
         """Give the agent the public acceptance contract it can act on."""
         commands = "\n".join(json.dumps(list(argv), ensure_ascii=False) for argv in self.checks)
         protected = ", ".join(self.protected_paths) if self.protected_paths else "(none)"
-        return (f"{self.request}\n\nUser-specified acceptance checks (argv, run independently after your turn):\n"
+        return (f"{self.request}\n\n"
+                + ("A repository change is required for this task.\n" if self.require_change else "")
+                + "User-specified acceptance checks (argv, run independently after your turn):\n"
                 f"{commands}\nProtected files that must not change: {protected}")
 
 
@@ -36,9 +41,11 @@ def load_task(path: Path) -> TaskSpec:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise ValueError(f"Cannot read task file: {path}") from exc
-    if not isinstance(raw, dict) or set(raw) != {"request", "checks", "protected_paths"}:
-        raise ValueError("task file requires exactly request, checks, and protected_paths")
+    if (not isinstance(raw, dict) or not {"request", "checks", "protected_paths"} <= set(raw)
+            or set(raw) - {"request", "checks", "protected_paths", "require_change"}):
+        raise ValueError("task file requires request, checks, protected_paths, and optional require_change")
     request, checks, protected = raw["request"], raw["checks"], raw["protected_paths"]
+    require_change = raw.get("require_change", False)
     if not isinstance(request, str) or not request.strip():
         raise ValueError("task request must be a non-empty string")
     if not isinstance(checks, list) or not checks or any(
@@ -48,7 +55,9 @@ def load_task(path: Path) -> TaskSpec:
         raise ValueError("task checks must be non-empty argv arrays")
     if not isinstance(protected, list) or any(not isinstance(item, str) or not item for item in protected):
         raise ValueError("protected_paths must be a list of relative file paths")
-    return TaskSpec(request, tuple(tuple(argv) for argv in checks), tuple(protected))
+    if not isinstance(require_change, bool):
+        raise ValueError("require_change must be a boolean")  # noqa: TRY004 - task input error
+    return TaskSpec(request, tuple(tuple(argv) for argv in checks), tuple(protected), require_change)
 
 
 def _protected_path(workspace: Workspace, name: str) -> Path:

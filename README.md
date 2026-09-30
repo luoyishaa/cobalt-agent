@@ -56,6 +56,8 @@ one observed outcome, not a reliability estimate. API usage may incur charges.
   the saved output without rerunning the command, including after a session restart.
   Failed-command previews retain the tail of stderr even after noisy stdout.
 - The answer is marked unverified if an edit has no later successful check.
+- Repair tasks can explicitly require a final repository change. A read-only
+  proposed fix then remains unverified and receives bounded follow-up attempts.
 - Guarded edits return a bounded readback of the persisted file version when
   available. Other changes, including command effects, require a fresh read
   before the final answer.

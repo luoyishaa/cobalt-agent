@@ -32,6 +32,11 @@ supporting the result's `verification_fingerprint`. The runtime verifies the
 command outcome and file version, but it does not understand whether the chosen
 check covers the request. User-specified checks and benchmark verifiers remain
 separate task evidence.
+For a task explicitly marked `require_change`, finalization also requires an
+observed repository change that remains at the end of the run. A proposed fix
+without an edit receives the same bounded follow-up opportunity and cannot
+finish as `completed`. This requirement is explicit in structured tasks and
+repair evaluations; ordinary questions do not acquire it from a keyword guess.
 
 ## Observation scope
 

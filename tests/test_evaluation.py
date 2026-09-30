@@ -107,6 +107,27 @@ class StaleCitationModel:
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_repair_draft_without_change_is_not_delivered_as_completed(self):
+        fixtures = Path(__file__).resolve().parents[1] / "benchmarks"
+
+        class ReadOnlyRepairModel:
+            def __init__(self):
+                self.calls = 0
+
+            def complete(self, _messages, _tools):
+                self.calls += 1
+                if self.calls == 1:
+                    return ModelTurn("", (ToolCall("read", "read_file", {"path": "service.py"}),))
+                return ModelTurn("The cache key needs normalization in pricing.py.")
+
+        row = run_case({"id": "abandoned_repair", "fixture": "fixtures/cache_invalidation",
+                        "request": "Fix stale quotes after a price update.", "kind": "repair",
+                        "hidden_verifier": "verifiers/cache_invalidation"},
+                       fixtures, ReadOnlyRepairModel)
+        self.assertEqual(row["run_status"], "unverified")
+        self.assertEqual(row["answer_retries"], 2)
+        self.assertFalse(row["changed_paths"])
+
     @unittest.skipUnless(os.environ.get("COBALT_RUN_DOCKER_TESTS") == "1", "requires a local Docker image")
     def test_python_fixture_command_uses_declared_container_import_path(self):
         fixtures = Path(__file__).resolve().parents[1] / "benchmarks"

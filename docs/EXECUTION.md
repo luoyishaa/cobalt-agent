@@ -63,12 +63,15 @@ chosen by the agent as `self_checked`. For repeatable tasks, supply a JSON file:
 {
   "request": "Fix empty grade averages while preserving non-empty behavior.",
   "checks": [["python", "-m", "unittest", "tests.test_grades", "-q"]],
-  "protected_paths": ["tests/test_grades.py"]
+  "protected_paths": ["tests/test_grades.py"],
+  "require_change": true
 }
 ```
 
 The agent sees the request, acceptance commands, and protected-file list
-before editing. After its turn, Cobalt runs the commands independently and
+before editing. `require_change` is optional; set it for repair tasks that
+must leave a repository change. A read-only proposed fix cannot complete such
+a task. After its turn, Cobalt runs the commands independently and
 labels their results as user-specified validation. The agent's own checks and
 the independent result remain separate in the report.
 
