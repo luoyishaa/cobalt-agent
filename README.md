@@ -4,33 +4,95 @@ Cobalt is a local coding agent for everyday repository work: ask about code,
 trace a failure, make a small edit, and run a check. It records which actions
 actually happened so a final answer can point to evidence.
 
-## Start
+## Start on Windows (PowerShell)
 
-Requires Python 3.11 or newer. Install from this directory:
+Requires Python 3.11 or newer and a key for the model provider you select.
+Docker is needed only for container execution. From a fresh checkout:
 
 ```powershell
-python -m pip install -e .
+git clone https://github.com/luoyishaa/cobalt-agent.git
+Set-Location cobalt-agent
+python -m venv .venv
+$py = ".\.venv\Scripts\python.exe"
+& $py -m pip install -e .
 Copy-Item .env.example .env
-# Edit .env and fill DEEPSEEK_API_KEY
-cobalt --workspace path\to\repository "Explain where the CLI starts"
+notepad .env
 ```
 
-The `.env` file is loaded from the directory where you launch Cobalt, not from
-the repository you ask it to work on. Process environment values take priority;
-`--env-file` selects another local file. The file is ignored by Git. To change
-providers, set `COBALT_PROVIDER` and that provider's key in `.env`. Set
-`COBALT_MODEL_TIER=pro` or `COBALT_MODEL_ID` for an exact model. CLI flags
-`--provider`, `--model`, and `--base-url` override those settings. Available
-presets and important protocol limits are in [provider documentation](docs/PROVIDERS.md).
-For interactive mode, omit the question. Local file edits and commands ask for
-approval. `--yes` requires `--execution container`.
-The default is `deepseek-flash` through DeepSeek's chat completions API.
-Use `--mode ask` to expose only read-only tools. `--mode code` is the default.
-Local commands run on the host after individual approval. Container mode copies
-the repository into an isolated task directory and runs commands in an existing
-Docker image with no network access. The original repository is not edited in
-container mode. Read [execution and task checks](docs/EXECUTION.md) for image
-setup, task files, reports, and limits.
+In `.env`, fill `DEEPSEEK_API_KEY` for the default DeepSeek provider, then save
+the file. If you already have a local `.env`, keep it instead of copying the
+example again. The file is ignored by Git. In a new PowerShell window, return
+to this checkout and set `$py = ".\.venv\Scripts\python.exe"` again. On
+macOS/Linux, use `python3 -m venv .venv`, `.venv/bin/python`, and
+`cp .env.example .env` for the corresponding setup steps.
+
+Keep the terminal in Cobalt's checkout. `--workspace` points to the
+**repository you want Cobalt to inspect or edit**; it can also be this checkout.
+The default `.env` is read
+from the terminal's current directory, not from that target repository.
+
+## Talk to Cobalt
+
+Replace `D:\work\my-project` with the path to your target repository. To start
+a read-only conversation:
+
+```powershell
+& $py -m cobalt --workspace "D:\work\my-project" --mode ask
+```
+
+Type natural-language questions at `cobalt>`; use `/exit` or `/quit` to leave.
+Put a question at the end of the command for a single turn instead:
+
+```powershell
+& $py -m cobalt --workspace "D:\work\my-project" --mode ask "Where is the CLI parser defined?"
+```
+
+To let Cobalt edit the **original** repository, omit `--mode ask`. The default
+is `--mode code --execution local`; each edit and command asks for your approval:
+
+```powershell
+& $py -m cobalt --workspace "D:\work\my-project" "Fix the failing test and run it"
+```
+
+To work in an **isolated copy**, build the command image once, then start a
+conversation in container mode. `--yes` allows edits and commands in that copy
+without individual prompts; it is not accepted with local execution:
+
+```powershell
+docker build -t cobalt/python:3.11 -f docker/Dockerfile .
+& $py -m cobalt --doctor
+& $py -m cobalt --workspace "D:\work\my-project" --execution container --yes
+```
+
+Container mode prints `Isolated workspace: ...`. Your original repository is
+not edited. Review the printed run report and its `final.patch` before applying
+changes yourself. `--doctor` checks local prerequisites and the image, not API
+balance or remote model availability.
+
+| Option | Meaning |
+| --- | --- |
+| `--mode ask` / `--mode code` | Read-only tools / edits and commands allowed; `code` is the default. |
+| `--execution local` / `--execution container` | Work directly in the target repository with approvals / work in an isolated copy; `local` is the default. |
+| `--yes` | Auto-approve actions, only in container mode. |
+| `--task-file task.json` | Optional one-turn task with user checks, protected paths, and an optional required-change rule. Do not also pass a question. |
+| `--resume latest` | Start a new turn with the saved conversation in the same workspace. Add `--continue` only for an unfinished task after a tool limit or model error. |
+| `--report RUN_ID` | Read a saved report without calling the model. |
+| `--max-tool-calls N` | Maximum tool calls per run; default 16. |
+
+For container resume, use the printed **isolated workspace** as `--workspace`.
+If the task used `--task-file`, pass the same file again when using `--continue`.
+A free-text request can ask for a repair; `--mode code` only permits edits and
+does not require them. A structured task can set `"require_change": true` when
+an actual repository change is part of its acceptance contract. See
+[execution and task checks](docs/EXECUTION.md) for the JSON format and recovery
+details.
+
+The default model is `deepseek-flash` via DeepSeek. To change providers, set
+`COBALT_PROVIDER` and that provider's key in `.env`; set `COBALT_MODEL_TIER=pro`
+or `COBALT_MODEL_ID` for a model override. CLI flags `--provider`, `--model`,
+`--base-url`, and `--env-file` override the corresponding settings. Process
+environment values take priority over `.env`. See
+[model providers](docs/PROVIDERS.md) for presets and protocol limits.
 
 ## Run the demo
 
@@ -82,7 +144,7 @@ one observed outcome, not a reliability estimate. API usage may incur charges.
 ## Verify
 
 ```powershell
-python -m unittest discover -s tests -v
+& $py -m unittest discover -s tests -v
 ```
 
 Read [the architecture guide](docs/ARCHITECTURE.md) for the design decisions
